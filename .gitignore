@@ -22,3 +22,5 @@ summary/
 
 # Eval fixture build products (created by build.sh / run.mjs --setup)
 test/fixtures/*/.repo/
+# One-off real-project fidelity check (manual ground truth, not a generalizable fixture)
+test/real-world/

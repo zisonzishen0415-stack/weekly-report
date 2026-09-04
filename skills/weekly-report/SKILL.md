@@ -37,7 +37,7 @@ Ask / confirm, then record:
 
 ### 1a. Local evidence — run the collector (deterministic)
 
-If `scripts/evidence.mjs` is available next to this skill, use it — it returns JSON with the window's commits, changed files, renames and regenerated noise, computed the same way every run:
+If `evidence.mjs` is available next to this skill, use it — it returns JSON with the window's commits, changed files, **code atoms** (new definitions/routes/columns per file), renames, regenerated noise, and any prior `.weekly-report/` sidecar:
 
 ```bash
 node <skill-dir>/evidence.mjs <dir> --days <N> [--author "<name or email>"]
@@ -51,7 +51,7 @@ git -C <dir> log -1 --pretty='%h|%ad|%s' --date=short          # last commit dat
 git -C <dir> status --short && git -C <dir> diff --stat         # uncommitted work
 ```
 
-The collector's `summary.changedFileSet` is your **ground truth file list** — cluster those. Respect its `noiseFileSet` / `renames` (data-regeneration snapshots, build output, pure renames are NOT features). mtime of files is NOT reliable work evidence (checkout/copy touches it) — trust git, not `find -newermt`, for what changed.
+The collector's `summary.changedFileSet` is your **ground truth file list** and its `atoms` are the **code's own vocabulary of what was built** — cluster those. Respect its `noiseFileSet` / `renames` (data snapshots, build output, pure renames are NOT features). mtime of files is NOT reliable work evidence (checkout/copy touches it) — trust git, not `find -newermt`, for what changed.
 
 ### 1b. Remote GitHub evidence (use when the local clone is stale / repo is elsewhere)
 
@@ -80,17 +80,45 @@ Also check for recently-generated outputs that indicate *what was being attempte
 
 ---
 
-## Step 2 — Analyze by FEATURE (not by commit)
+## Step 2 — Analyze by FEATURE, code-first
 
-Cluster across commits/files; a "feature" is one coherent goal spanning many changes.
+The collector's output is your working set:
+- **`summary.changedFileSet`** — real changed files this window (ground truth list).
+- **`atoms`** — the NEW semantic units extracted from each file's diff (`{path → [{name, kind}]}`, kind ∈ function/class/const/interface/type/method/route/column/table/key). **These are the code's own vocabulary** — trust them over commit wording.
+- **`renames` / `noiseFileSet`** — NOT features (mention once in 备注).
 
-- **Map code structure to function** — from file paths and diffs, say what each cluster actually *does* (`FabricServiceImpl` temp-upload → "let users try a fabric on an unregistered photo"). Prefer real paths over vague labels.
-- **Give each cluster a user-voice one-liner** ("built X so that Y"), not engineering-speak.
-- **Split large commits by semantic capability, don't flatten them.** A single `feat(...)` commit frequently bundles several unrelated capabilities (new endpoint + new flag + new component + new prompt template). Read the diff; group by *capability*, not by the commit's subject line. Watch for capability markers: new endpoints/routes, new DB columns/entities, new toggles/options, new components, new prompt templates.
-- **Merge one capability spread over many commits** into one module (initial impl + follow-up fixes + review polish of the same feature = one module).
-- **Noise is NOT a feature** — regenerated data snapshots (`git-log.json`, dumps, bundles), pure renames (0-content-delta), build output. Mention them once in 备注 as excluded; cite only the file's *current* name if it's real work.
-- **Cross-cutting fixes** (a review pass fixing many small things) → their own cluster ("code-review fixes: NPE, viewer polish, …").
-- Merge/release commits by teammates are context (what got shipped), not your work — note them as context.
+Cluster **atoms + files** into features; use commit messages ONLY as auxiliary color, and when a commit message and the code disagree, **believe the code**:
+
+- **Map atoms to behavior, not labels.** `hasBackgroundLeak`, `@PostMapping("/fabric/upload-temp")`, `is_virtual TINYINT` tell you what was built (`leak detection`, `temp upload`, `virtual-color column`) — describe that.
+- **Split by atom-cluster, don't flatten.** A big commit is really N features if its atoms are N unrelated groups. Group atoms that share a purpose; keep unrelated atom groups as separate modules.
+- **Merge one capability spread over commits** (initial + fix + polish of the same atoms = one module).
+- **Give each module a user-voice one-liner** ("built X so that Y").
+- **Cross-cutting fixes** (a review pass) → their own module.
+- Teammate merge/release commits are context (what shipped), not your work.
+
+### Write the sidecar (new, required when scanning a local repo)
+
+The project repo owns its own report history. After writing the archive file, write a **machine-readable sidecar** into the scanned repo so next week can diff "since last report":
+
+```json
+<scanned-repo>/.weekly-report/<YYYY-MM-DD>.json
+{
+  "repo": "<abs or logical name>",
+  "date": "<YYYY-MM-DD>",
+  "window": {"start": "...", "end": "<YYYY-MM-DD>"},
+  "features": [
+    {"id": "<kebab>", "summary": "<one-line user-voice>",
+     "files": ["<changed file paths>"], "atoms": ["kind:name", ...],
+     "status": "shipped|wip|blocked"}
+  ],
+  "scope": {"dirs": [...], "remote": "<owner/repo if remote-scoped>", "authors": ["..."]}
+}
+```
+
+Rules:
+- `files` MUST be real repo-relative paths from `changedFileSet`; `atoms` MUST come from the collector's `atoms` (don't invent names).
+- Do NOT commit the sidecar yourself; it's the repo owner's file (the `.weekly-report/` dir is auto-excluded from future scans).
+- If the collector reported `sidecar` (a prior report exists), add a `sinceLastReport` note: which features are new vs continued — so weekly reports read as an *increment*, not a re-derivation.
 
 ## Step 3 — Write the report
 

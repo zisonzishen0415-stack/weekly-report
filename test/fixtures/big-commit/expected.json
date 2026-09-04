@@ -19,5 +19,14 @@
     { "id": "carousel-hover-playback", "files": ["frontend/Carousel.tsx", "frontend/types.ts"], "summaryContains": ["carousel", "hover"] },
     { "id": "vcol-registration", "files": ["src/vcol.ts"], "summaryContains": ["vcol", "virtual"] }
   ],
-  "expectStale": false
+  "expectStale": false,
+  "expectedAtoms": {
+    "backend/LeakDetector.java": [
+      { "name": "LeakDetector", "kind": "type" },
+      { "name": "hasLeak", "kind": "method" }
+    ],
+    "frontend/Carousel.tsx": [{ "name": "Carousel", "kind": "const" }],
+    "frontend/types.ts": [{ "name": "Play", "kind": "interface" }],
+    "src/vcol.ts": [{ "name": "registerVcol", "kind": "const" }]
+  }
 }
