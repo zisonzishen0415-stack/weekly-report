@@ -1,0 +1,7 @@
+{
+  "groundTruthFiles": [],
+  "noiseFiles": [],
+  "features": [],
+  "expectStale": false,
+  "note": "Window has zero commits, clean worktree. Correct report = explicitly state nothing found; do not surface stable.js or the 120-day-old commit."
+}

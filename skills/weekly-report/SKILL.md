@@ -28,22 +28,30 @@ Ask / confirm, then record:
 - **Directories** to scan. If the user gives none, ask which projects are in scope (keep it to the ones they actually worked in).
 - **Time window** — default **last 7 days** (from today, backwards). Accept `近 N 天` / `last N days` / `上周` / explicit dates.
 - **Where the code actually lives.** Critical: do NOT assume the local folder is current.
-  - Check the local clone: `git -C <dir> log -1 --pretty='%h|%ad|%s' --date=short`. If its last commit predates the window significantly, **the real work may live on a remote** (a teammate's repo, a CI machine, a work PC).
-  - If the project is on GitHub and you can read it, use **remote evidence** via `gh api` (read-only; see Step 1b). Don't fetch/clone/pull the user's repo without asking — read-only APIs are enough.
+  - This skill ships a deterministic collector `evidence.mjs` next to this file — use it for the local case (Step 1a).
+  - If the local clone is stale (its last commit predates the window significantly), **the real work may live on a remote** — a teammate's repo, CI, a work PC. Route to remote evidence (Step 1b) instead of reporting a stale clone as "this week". If the user says "my real work is on my other machine / pushed to a teammate's repo", trust that over the local folder.
 
 ---
 
 ## Step 1 — Gather evidence (believe the code, not the memory)
 
-### 1a. Local evidence (use when the local checkout is current)
+### 1a. Local evidence — run the collector (deterministic)
+
+If `scripts/evidence.mjs` is available next to this skill, use it — it returns JSON with the window's commits, changed files, renames and regenerated noise, computed the same way every run:
+
+```bash
+node <skill-dir>/evidence.mjs <dir> --days <N> [--author "<name or email>"]
+```
+
+`<skill-dir>` is the folder containing this `SKILL.md` (this skill ships `evidence.mjs` next to it). If the collector is absent, fall back to:
 
 ```bash
 git -C <dir> log --since='<YYYY-MM-DD>' --pretty='%h|%ad|%an|%s' --date=short
-git -C <dir> log -1 --pretty='%h|%ad|%s' --date=short          # last commit date
+git -C <dir> log -1 --pretty='%h|%ad|%s' --date=short          # last commit date (staleness)
 git -C <dir> status --short && git -C <dir> diff --stat         # uncommitted work
-find <dir> -type f -not -path '*/.git/*' -not -path '*/node_modules/*' \
-     -not -path '*/target/*' -not -path '*/dist/*' -newermt '<YYYY-MM-DD>' | sort
 ```
+
+The collector's `summary.changedFileSet` is your **ground truth file list** — cluster those. Respect its `noiseFileSet` / `renames` (data-regeneration snapshots, build output, pure renames are NOT features). mtime of files is NOT reliable work evidence (checkout/copy touches it) — trust git, not `find -newermt`, for what changed.
 
 ### 1b. Remote GitHub evidence (use when the local clone is stale / repo is elsewhere)
 
@@ -62,7 +70,11 @@ gh api "repos/<owner>/<repo>/commits/<sha>" -H 'Accept: application/vnd.github.d
 
 **Attribution matters.** Filter the remote history to the **user's own commits** (match `commit.author` login/name, or use `--author=` locally) so you summarize *their* work — a shared repo is full of other people's commits. Report the date range you actually saw.
 
-### 1c. Artifacts & docs
+### 1c. Provenance — tag each claim
+
+When a summary statement is NOT directly verifiable in the code (you inferred intent from a commit message, a teammate's release note, or a doc that may itself be AI-written), tag it: **`[self-reported]`**. Statements you traced to the actual diff need no tag (they are `[code-verifiable]` by default). If a doc/commit claims a capability but the window's code shows no trace of it, say so (`claimed, not found in code`) — don't launder an unverifiable claim into a factual one. This matters because AI-written summaries get recursively summarized; provenance is the only thing that stops the drift.
+
+### 1d. Artifacts & docs
 
 Also check for recently-generated outputs that indicate *what was being attempted/delivered*: images, PDFs, exports, and — especially — **work-report docs the user wrote** (`docs/`, work-summary folders). Those are first-hand and often describe intent the commits don't.
 
@@ -74,8 +86,9 @@ Cluster across commits/files; a "feature" is one coherent goal spanning many cha
 
 - **Map code structure to function** — from file paths and diffs, say what each cluster actually *does* (`FabricServiceImpl` temp-upload → "let users try a fabric on an unregistered photo"). Prefer real paths over vague labels.
 - **Give each cluster a user-voice one-liner** ("built X so that Y"), not engineering-speak.
-- **Identify the through-line of large commits.** A single huge `feat(...)` commit often bundles several related capabilities — split them into the features they serve.
-- **Noise** (formatting, comment edits, renames) → one line or omit.
+- **Split large commits by semantic capability, don't flatten them.** A single `feat(...)` commit frequently bundles several unrelated capabilities (new endpoint + new flag + new component + new prompt template). Read the diff; group by *capability*, not by the commit's subject line. Watch for capability markers: new endpoints/routes, new DB columns/entities, new toggles/options, new components, new prompt templates.
+- **Merge one capability spread over many commits** into one module (initial impl + follow-up fixes + review polish of the same feature = one module).
+- **Noise is NOT a feature** — regenerated data snapshots (`git-log.json`, dumps, bundles), pure renames (0-content-delta), build output. Mention them once in 备注 as excluded; cite only the file's *current* name if it's real work.
 - **Cross-cutting fixes** (a review pass fixing many small things) → their own cluster ("code-review fixes: NPE, viewer polish, …").
 - Merge/release commits by teammates are context (what got shipped), not your work — note them as context.
 
@@ -101,6 +114,7 @@ Structure:
 
 ## 备注 / 遗留
 - unfinished / blocked / tried-and-discarded, marked honestly when not visible in git
+- excluded noise (data snapshots, renames) — one line so a reader knows they were seen and rejected
 - scope notes: which dirs/repos were scanned, and that uncommitted/remote-only work outside the scan is not included
 ```
 
@@ -110,8 +124,9 @@ Repeat the **3–5 lines** from the archive header **in your final reply** so th
 
 ### Honesty rules
 
-- No commits, clean worktree, no recent files → **state it** ("last commit was X; nothing in the window"), don't stretch old work.
+- No commits in window, clean worktree → **state it** ("last commit was X; nothing in the window"), don't stretch old work.
 - Remote-scoped runs: say clearly the report covers **only what's pushed & authored by you**; local uncommitted work on the work machine isn't visible.
+- **Evidence over vibes**: never cite a file you did not verify changed in the window. Cite a file's current name (post-rename).
 
 ---
 

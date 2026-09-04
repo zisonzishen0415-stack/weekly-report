@@ -92,18 +92,35 @@ bash scripts/demo.sh /path/to/your/repo --days 30
 ├─ skills/
 │  └─ weekly-report/          # the skill (self-contained, loadable via Option A or B)
 │     ├─ SKILL.md             # instructions Claude follows
+│     ├─ evidence.mjs         # deterministic evidence collector (git → changed-file JSON)
 │     ├─ config.md            # editable defaults (window, output dir, directory list)
 │     ├─ examples.md          # evidence commands + sample spoken summaries
 │     └─ references/          # optional topic references
 ├─ scripts/
+│  ├─ evidence.mjs            # canonical collector (mirrored into the skill folder)
 │  ├─ demo.sh                 # run the skill's evidence flow against a repo
-│  └─ validate-skill.mjs      # syntax-check every SKILL.md in the repo
+│  ├─ validate-skill.mjs      # syntax-check every SKILL.md in the repo
+│  └─ eval/
+│     ├─ run.mjs              # deterministic evidence eval (--setup builds fixtures)
+│     ├─ run-agent.mjs        # drive a real agent run against a fixture
+│     └─ judge.mjs            # score a report's feature clustering vs ground truth
+├─ test/fixtures/             # golden repos with expected.json labels
+│  ├─ big-commit/ …           # (fixture .repo/ is gitignored; build.sh creates it)
 ├─ .claude-plugin/
 │  └─ marketplace.json        # plugin marketplace manifest (used by Option A)
-├─ .github/workflows/ci.yml   # runs the validator on every push / PR
+├─ .github/workflows/ci.yml   # runs the validator + evidence eval on every push / PR
 ├─ README.md
 └─ CONTRIBUTING.md
 ```
+
+## How it's evaluated
+
+The skill is scored on two layers — so improvements are measurable, not vibes:
+
+1. **Evidence layer (deterministic, runs in CI).** `scripts/eval/run.mjs` builds golden fixture repos (one-commit-many-features, cross-commit features, noise/rename rejection, stale-local, empty-window) and checks that `evidence.mjs` surfaces the ground-truth changed files, rejects noise, and detects staleness. Precision/recall/noise-rejection are printed and asserted. No LLM, no network — CI-stable.
+2. **Clustering layer (optional, run in Claude Code).** `run-agent.mjs` prints instructions to drive a real agent through the SKILL.md against a fixture; `judge.mjs` scores the resulting report's feature-vs-label alignment.
+
+The eval caught two real bugs during development: `find -newermt` falsely flagging freshly-checked-out files as work, and rename targets being dropped from the change set. Regressions are now caught before they ship.
 
 ## Contributing
 

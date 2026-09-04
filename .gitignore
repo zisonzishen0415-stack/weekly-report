@@ -19,3 +19,6 @@ Thumbs.db
 # Local work-summary outputs (never commit someone's personal reports)
 summary/
 *.report.md
+
+# Eval fixture build products (created by build.sh / run.mjs --setup)
+test/fixtures/*/.repo/

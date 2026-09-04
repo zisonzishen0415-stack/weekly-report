@@ -18,3 +18,9 @@ jobs:
 
       - name: Validate all SKILL.md files
         run: node scripts/validate-skill.mjs
+
+      - name: Build eval fixtures
+        run: node scripts/eval/run.mjs --setup
+
+      - name: Run evidence eval
+        run: node scripts/eval/run.mjs

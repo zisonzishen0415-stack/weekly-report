@@ -1,0 +1,7 @@
+{
+  "groundTruthFiles": [],
+  "noiseFiles": [],
+  "features": [],
+  "expectStale": true,
+  "note": "Local clone's last commit is ~120 days ago → stale:true; the skill must route to remote evidence, not report the stale local clone as this week's work."
+}

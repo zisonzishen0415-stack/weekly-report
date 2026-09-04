@@ -1,0 +1,23 @@
+{
+  "author": "Dev A",
+  "groundTruthFiles": [
+    "backend/LeakDetector.java",
+    "backend/TextureToggle.java",
+    "frontend/Carousel.tsx",
+    "frontend/types.ts",
+    "src/vcol.ts"
+  ],
+  "noiseFiles": [
+    "public/git-log.json"
+  ],
+  "renames": [
+    { "from": "backend/Option.java", "to": "backend/TextureToggle.java" }
+  ],
+  "features": [
+    { "id": "background-leak-detect", "files": ["backend/LeakDetector.java"], "summaryContains": ["leak", "background"] },
+    { "id": "keep-texture-option", "files": ["backend/TextureToggle.java"], "summaryContains": ["texture"] },
+    { "id": "carousel-hover-playback", "files": ["frontend/Carousel.tsx", "frontend/types.ts"], "summaryContains": ["carousel", "hover"] },
+    { "id": "vcol-registration", "files": ["src/vcol.ts"], "summaryContains": ["vcol", "virtual"] }
+  ],
+  "expectStale": false
+}
