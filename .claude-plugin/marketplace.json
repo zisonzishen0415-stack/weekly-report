@@ -1,0 +1,22 @@
+{
+  "name": "weekly-report",
+  "owner": {
+    "name": "zisonzishen0415-stack",
+    "email": "2951760190@qq.com"
+  },
+  "metadata": {
+    "description": "Weekly code-work summary skill for Claude Code — reconstructs what you did from git history and real file changes, no memory required",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "weekly-report",
+      "description": "Summarizes recent code work along the git tree + actual changes into a readable weekly report with a one-page spoken summary",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/weekly-report"
+      ]
+    }
+  ]
+}
