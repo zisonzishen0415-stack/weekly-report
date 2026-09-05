@@ -230,6 +230,10 @@ function galleryHtml() {
     for (const f of readdirSync(shotsDir).filter((f) => /\.(png|jpe?g|webp)$/i.test(f)).sort()) {
       items.push({ src: dataUri(join(shotsDir, f)), label: f });
     }
+  } else if (shotsDir) {
+    console.error(`[render-report] shotsDir not found (${shotsDir}) — gallery empty; give a Windows/absolute path or repo-relative path.`);
+    rmSync(tmp, { recursive: true, force: true });
+    return '';
   }
   for (const u of urls) {
     const f = join(tmp, u.replace(/^https?:\/\//, '').replace(/[^\w.-]/g, '_').slice(0, 120) + '.png');
@@ -330,13 +334,20 @@ if (!engine) {
   process.exit(0);
 }
 const pdfPath = outPdf ? resolve(outPdf) : join(dirname(mdFile), `${base}-展示.pdf`);
+try { rmSync(pdfPath, { force: true }); } catch { /* 文件被占用（如正被预览）——继续尝试覆盖 */ } // 防旧文件误判“已生成”
+const mtimeBefore = existsSync(pdfPath) ? statSync(pdfPath).mtimeMs : 0;
 const res = spawnSync(
   engine,
   ['--headless=new', '--disable-gpu', '--no-pdf-header-footer', `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href],
   { stdio: 'ignore', timeout: 120_000 }
 );
+const mtimeAfter = existsSync(pdfPath) ? statSync(pdfPath).mtimeMs : 0;
 if (res.error || res.status !== 0 || !existsSync(pdfPath) || statSync(pdfPath).size === 0) {
   console.error(`[render-report] PDF failed: ${res.error?.message || `exit ${res.status ?? res.signal}`} — HTML delivered`);
+  process.exit(0);
+}
+if (mtimeAfter === mtimeBefore) {
+  console.error(`[render-report] PDF 未更新：${pdfPath}（可能正被预览程序占用）—— HTML 已更新，关闭旧预览后重跑即可`);
   process.exit(0);
 }
 console.log(`[render-report] PDF → ${pdfPath} (${(statSync(pdfPath).size / 1024).toFixed(1)} KB)`);
