@@ -11,6 +11,7 @@ rely on memory. It rebuilds "what I did" from code evidence.
 | Scan directories | ask each run | Pass `from <dir>`; or add to **Directory list** below |
 | Output dir | `…/dev/工作总结/<date>_周报.md` | Edit **Output dir** below |
 | PDF export | off (optional, Step 4) | Say `加一份 PDF` / `print a PDF too`; needs Edge/Chrome (`$CHROME_BIN` override) |
+| Presentation | off (optional, Step 4) | Say `做成展示版` / `presentation`; adds KPI strip + per-day chart + screenshot gallery (`--urls`/`--shots-dir`) |
 
 ## Directory list (editable)
 

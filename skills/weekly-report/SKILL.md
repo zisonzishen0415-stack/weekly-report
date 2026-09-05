@@ -158,17 +158,20 @@ Repeat the **3–5 lines** from the archive header **in your final reply** so th
 
 ---
 
-## Step 4 — Optional: PDF export
+## Step 4 — Optional: presentation layer (PDF / HTML / numbers / screenshots)
 
-Some teams archive the report as a PDF next to the `.md` (the report's own `docs/` may already hold 工作汇报 PDFs). If the user asks for one, render it right after Step 3:
+The `.md` stays the archive source of truth. For *showing* the report to a manager or customer, two renderers ship next to this SKILL.md (zero npm deps, headless Edge/Chrome — engine order `$CHROME_BIN` → Edge → Chrome):
 
-```bash
-node <skill-dir>/render-pdf.mjs <report.md> [--out <file.pdf>]
-```
+1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF).
+2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]`:
+   - **KPI strip + per-day commit bar chart** built from `evidence.mjs` output (commits / feat+fix / modules / files; single-series validated blue, zero-commit days shown grey — the truth, not a curated curve);
+   - **section styling** by heading keywords: ✅ shipped (green) / 📊 metrics / ⚠️ risk·遗留 (amber) / 📅 next (blue) chips — icon + label always, never color alone;
+   - **screenshot gallery**: pass `--urls` for pages it should capture itself (e.g. the product's public URLs — a real page beats a paragraph) or `--shots-dir` for files you have; images embed as `data:` URIs so the HTML is one self-contained file;
+   - writes `<report-base>-展示.html` + `<report-base>-展示.pdf` next to the `.md`.
 
-`render-pdf.mjs` (ships next to this SKILL.md) embeds a minimal Markdown→HTML renderer (headings/lists/tables/blockquote/code fences/inline styles) and hands the HTML to a **headless Edge/Chrome** `--print-to-pdf` — zero npm deps, works wherever a Chromium browser is installed (A4, CJK-safe fonts, clean light styling). Engine order: `$CHROME_BIN` → Edge → Chrome (Windows paths, plus common macOS/Linux paths). The PDF lands **next to the `.md`** with the same basename by default.
+Report styles live in `templates/` — `one-pager-汇报版.md` (manager-facing: 重点突破 1–2 项 → ✅已交付 → 📊指标 with Δ → ⚠️风险/需支援 → 📅下周 Top 3 → 亮点), `okr-版.md` (O/KR with 目标 vs 实际), plus `BIGTECH-FORMAT.md`, the survey behind these. If presentation matters, the 一页汇报 section should focus 1–2 项重点突破, and the report should keep explicit ⚠️ / 📅 slots — code evidence can't fill 风险/需支援/下周计划, leave them as honest placeholders for the user.
 
-It is **best-effort**: if no browser is found it prints a hint and exits non-zero — deliver the `.md` and say the PDF was skipped, don't invent one. Verify the output file exists and is non-empty before reporting success.
+Both are **best-effort**: no browser → deliver the `.md` (or HTML) and say the PDF was skipped. Verify the output exists and is non-empty before reporting success.
 
 ---
 
