@@ -10,6 +10,7 @@ rely on memory. It rebuilds "what I did" from code evidence.
 | Time window | last 7 days | Say `近 N 天` / `last N days` / `上周` |
 | Scan directories | ask each run | Pass `from <dir>`; or add to **Directory list** below |
 | Output dir | `…/dev/工作总结/<date>_周报.md` | Edit **Output dir** below |
+| PDF export | off (optional, Step 4) | Say `加一份 PDF` / `print a PDF too`; needs Edge/Chrome (`$CHROME_BIN` override) |
 
 ## Directory list (editable)
 

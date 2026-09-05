@@ -12,7 +12,7 @@ description: >-
 
 # weekly-report — code-work weekly report
 
-Rebuild a truthful, human-readable summary of recent work **from the code**, not from memory. Produce **two** deliverables:
+Rebuild a truthful, human-readable summary of recent work **from the code**, not from memory. Produce **two** deliverables (plus an **optional PDF export**, see Step 4):
 
 1. An **archiveable dated report** (Markdown) — written to disk.
 2. A **short spoken summary** (3–5 lines, user-voice) — printed in your final reply.
@@ -155,6 +155,20 @@ Repeat the **3–5 lines** from the archive header **in your final reply** so th
 - No commits in window, clean worktree → **state it** ("last commit was X; nothing in the window"), don't stretch old work.
 - Remote-scoped runs: say clearly the report covers **only what's pushed & authored by you**; local uncommitted work on the work machine isn't visible.
 - **Evidence over vibes**: never cite a file you did not verify changed in the window. Cite a file's current name (post-rename).
+
+---
+
+## Step 4 — Optional: PDF export
+
+Some teams archive the report as a PDF next to the `.md` (the report's own `docs/` may already hold 工作汇报 PDFs). If the user asks for one, render it right after Step 3:
+
+```bash
+node <skill-dir>/render-pdf.mjs <report.md> [--out <file.pdf>]
+```
+
+`render-pdf.mjs` (ships next to this SKILL.md) embeds a minimal Markdown→HTML renderer (headings/lists/tables/blockquote/code fences/inline styles) and hands the HTML to a **headless Edge/Chrome** `--print-to-pdf` — zero npm deps, works wherever a Chromium browser is installed (A4, CJK-safe fonts, clean light styling). Engine order: `$CHROME_BIN` → Edge → Chrome (Windows paths, plus common macOS/Linux paths). The PDF lands **next to the `.md`** with the same basename by default.
+
+It is **best-effort**: if no browser is found it prints a hint and exits non-zero — deliver the `.md` and say the PDF was skipped, don't invent one. Verify the output file exists and is non-empty before reporting success.
 
 ---
 

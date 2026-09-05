@@ -8,6 +8,7 @@ Reconstruct recent code work (default: last 7 days) from git + file-change evide
 
 1. `工作总结/<YYYY-MM-DD>_周报.md` — the archiveable report (feature clusters + evidence + honest notes).
 2. A **3–5 line spoken summary** in the reply, ready to copy.
+3. **Optional** — a `<report>.pdf` next to the Markdown, rendered on request via headless Edge/Chrome (`skills/weekly-report/render-pdf.mjs`, zero deps; skipped with a hint when no browser is installed).
 
 ## Works where your work actually is
 
