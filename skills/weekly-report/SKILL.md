@@ -138,6 +138,10 @@ Structure:
 ### 模块 A：<feature name>
 - user-voice goal / what changed
 - evidence: commit hashes, changed file paths, diff highlights
+- **🎤 讲解词（可照读）**：2–4 句自然语言白话（背景 → 做了什么 → 结果），口语化、少术语；
+  这是把 evidences/atoms 翻译成"讲给人听的"版本，不是再罗列一次
+- **👀 演示步骤**：3–6 步真实可操作序列（打开哪个页面 → 点什么 → 预期看到什么），
+  让汇报者照着就能在真实系统里现场演示，每步给出「预期效果」标注
 ### 模块 B：…
 
 ## 备注 / 遗留
@@ -145,6 +149,17 @@ Structure:
 - excluded noise (data snapshots, renames) — one line so a reader knows they were seen and rejected
 - scope notes: which dirs/repos were scanned, and that uncommitted/remote-only work outside the scan is not included
 ```
+
+### Presentation script (可选，默认产出)
+
+If the report will be *demoed* to managers / customers (not just filed), also produce a
+<report>_讲解稿.md next to the report: per module, `🎤 讲解词` + `👀 演示步骤` copied verbatim,
+with a header "How to demo" — so the presenter can open the doc and walk through each module
+on the live system without re-reading evidence blocks.
+
+Write the 讲解词 in the presenter's voice (first person, casual, concrete), and make every
+演示步骤 verifiable against the real UI (page + action + visible effect); if a step can't be
+verified (feature not deployed), say so in that step instead of inventing a visual.
 
 ### Spoken summary (required)
 
