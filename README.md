@@ -94,19 +94,24 @@ bash scripts/demo.sh /path/to/your/repo --days 30
 │  └─ weekly-report/          # the skill (self-contained, loadable via Option A or B)
 │     ├─ SKILL.md             # instructions Claude follows
 │     ├─ evidence.mjs         # deterministic evidence collector (git → changed-file JSON)
+│                             # single source of truth for the collector logic
 │     ├─ config.md            # editable defaults (window, output dir, directory list)
 │     ├─ examples.md          # evidence commands + sample spoken summaries
 │     └─ references/          # optional topic references
 ├─ scripts/
-│  ├─ evidence.mjs            # canonical collector (mirrored into the skill folder)
+│  ├─ evidence.mjs            # shim → imports skills/weekly-report/evidence.mjs so the
+│  │                          # eval suite runs the same file the living skill ships
 │  ├─ demo.sh                 # run the skill's evidence flow against a repo
 │  ├─ validate-skill.mjs      # syntax-check every SKILL.md in the repo
 │  └─ eval/
 │     ├─ run.mjs              # deterministic evidence eval (--setup builds fixtures)
 │     ├─ run-agent.mjs        # drive a real agent run against a fixture
 │     └─ judge.mjs            # score a report's feature clustering vs ground truth
-├─ test/fixtures/             # golden repos with expected.json labels
-│  ├─ big-commit/ …           # (fixture .repo/ is gitignored; build.sh creates it)
+├─ test/
+│  ├─ render.test.mjs         # golden test for render-report.mjs (HTML structure) + PDF smoke
+│  └─ fixtures/
+│     ├─ render/              # report.md + evidence.json consumed by render.test.mjs
+│     └─ …                    # golden repos with expected.json labels
 ├─ .claude-plugin/
 │  └─ marketplace.json        # plugin marketplace manifest (used by Option A)
 ├─ .github/workflows/ci.yml   # runs the validator + evidence eval on every push / PR
@@ -116,10 +121,11 @@ bash scripts/demo.sh /path/to/your/repo --days 30
 
 ## How it's evaluated
 
-The skill is scored on two layers — so improvements are measurable, not vibes:
+The skill is scored on three layers — so improvements are measurable, not vibes:
 
 1. **Evidence layer (deterministic, runs in CI).** `scripts/eval/run.mjs` builds golden fixture repos (one-commit-many-features, cross-commit features, noise/rename rejection, stale-local, empty-window) and checks that `evidence.mjs` surfaces the ground-truth changed files, rejects noise, and detects staleness. Precision/recall/noise-rejection are printed and asserted. No LLM, no network — CI-stable.
-2. **Clustering layer (optional, run in Claude Code).** `run-agent.mjs` prints instructions to drive a real agent through the SKILL.md against a fixture; `judge.mjs` scores the resulting report's feature-vs-label alignment.
+2. **Render layer (deterministic, runs in CI).** `test/render.test.mjs` renders the fixture report through the real `render-report.mjs` / `render-pdf.mjs` and asserts the HTML structure (KPI tiles, per-day chart incl. zero days, section chips, tables, code fences, data-URI screenshot gallery), plus the PDF honesty contract: with no Chromium engine it must skip cleanly — never fake success. No LLM, no network.
+3. **Clustering layer (optional, run in Claude Code).** `run-agent.mjs` prints instructions to drive a real agent through the SKILL.md against a fixture; `judge.mjs` scores the resulting report's feature-vs-label alignment.
 
 The eval caught two real bugs during development: `find -newermt` falsely flagging freshly-checked-out files as work, and rename targets being dropped from the change set. Regressions are now caught before they ship.
 

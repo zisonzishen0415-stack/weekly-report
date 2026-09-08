@@ -24,3 +24,6 @@ jobs:
 
       - name: Run evidence eval
         run: node scripts/eval/run.mjs
+
+      - name: Render golden test (HTML + PDF smoke)
+        run: node test/render.test.mjs

@@ -14,9 +14,11 @@ Before pushing, make sure every skill still parses:
 
 ```bash
 node scripts/validate-skill.mjs
+node scripts/eval/run.mjs --setup && node scripts/eval/run.mjs
+node test/render.test.mjs
 ```
 
-This checks that each `SKILL.md` has valid YAML frontmatter with the required `name` and `description` fields. The same check runs in CI on every push and PR — green check means you're good.
+This checks that each `SKILL.md` has valid YAML frontmatter with the required `name` and `description` fields, that the evidence collector still matches the golden fixtures, and that the report renderer still produces the expected HTML/PDF. The same checks run in CI on every push and PR — green check means you're good. (Exit on the render test is also green when there's no Edge/Chrome installed: both PDF paths are required to *skip cleanly*, never fake output.)
 
 ## Testing a skill locally
 

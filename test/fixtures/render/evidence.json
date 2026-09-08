@@ -1,0 +1,13 @@
+{
+  "repo": "D:/demo/demo-project",
+  "window": { "days": 7, "start": "2026-09-01" },
+  "commits": [
+    { "hash": "a1b2c3d4", "date": "2026-09-02T09:15:00+08:00", "author": "zisonzishen", "subject": "feat(search): 先召回再判分上线", "files": [{ "path": "src/search/SearchService.java", "status": "M" }] },
+    { "hash": "b2c3d4e5", "date": "2026-09-02T15:40:00+08:00", "author": "zisonzishen", "subject": "feat(search): 检索接口路由", "files": [{ "path": "src/search/SearchController.java", "status": "M" }, { "path": "src/search/SearchConfig.kt", "status": "M" }] },
+    { "hash": "c3d4e5f6", "date": "2026-09-03T10:00:00+08:00", "author": "zisonzishen", "subject": "feat(ops): 语料补齐脚本", "files": [{ "path": "scripts/refresh-corpus.sh", "status": "A" }] },
+    { "hash": "d4e5f6a7", "date": "2026-09-03T17:05:00+08:00", "author": "zisonzishen", "subject": "fix(search): 分数阈值下调 20", "files": [{ "path": "src/search/SearchConfig.kt", "status": "M" }] },
+    { "hash": "e5f6a7b8", "date": "2026-09-05T11:30:00+08:00", "author": "zisonzishen", "subject": "feat(docs): 讲解稿模板 + 四交付物收口", "files": [{ "path": "docs/report/SKILL.md", "status": "M" }, { "path": "templates/demo-script-template.md", "status": "A" }] },
+    { "hash": "f6a7b8c9", "date": "2026-09-06T14:20:00+08:00", "author": "zisonzishen", "subject": "fix(render): 被占用 PDF 不再误报成功", "files": [{ "path": "skill/render-report.mjs", "status": "M" }] }
+  ],
+  "summary": { "commitCount": 6, "churn": { "additions": 412, "deletions": 189 } }
+}

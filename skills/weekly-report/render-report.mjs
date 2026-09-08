@@ -109,7 +109,7 @@ function mdToHtml(md) {
       if (level === 1) { closeSec(); /* h1 is rendered by the cover header above */ }
       else if (level === 2) {
         closeSec();
-        const [, , kind, label] = kindOf(text);
+        const [, kind, label] = kindOf(text);
         const title = renderInline(text);
         out.push(kind
           ? `<section class="sec sec-${kind}"><h2><span class="chip chip-${kind}">${label}</span> ${title}</h2>`
