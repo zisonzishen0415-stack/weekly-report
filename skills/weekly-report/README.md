@@ -6,10 +6,12 @@ Reconstruct recent code work (default: last 7 days) from git + file-change evide
 
 ## What you get
 
-1. `工作总结/<YYYY-MM-DD>_周报.md` — the archiveable report (feature clusters + evidence + honest notes).
-2. A **3–5 line spoken summary** in the reply, ready to copy.
-3. **Optional presentation layer** (headless Edge/Chrome, zero deps, skipped with a hint when no browser): `render-pdf.mjs` → quick PDF; `render-report.mjs` → KPI strip + per-day commit chart + screenshot gallery, one self-contained `<report>-展示.html` + PDF. Report styles in `templates/` (one-pager 汇报版 / OKR 版 / 大厂格式调研).
-4. **Optional demo script** — `<report>_讲解稿.md`: every module gets a speakable 🎤 讲解词 (natural-language, first-person) + 👀 演示步骤 (real UI walkthrough with expected effects), so anyone can demo the report module-by-module on the live system.
+1. `<YYYY-MM-DD>_周报.md` — the archiveable report (feature clusters + evidence + honest notes), including a 数据快照 section with code churn (commits / files / +N −M line counts from `summary.churn`).
+2. A **PDF export** — rendered every run by default (`render-pdf.mjs`; `render-report.mjs` adds the KPI strip + chart + screenshot gallery). Verify the output exists and is non-empty before reporting success.
+3. A **3–5 line spoken summary** in the reply, ready to copy.
+4. **Optional demo script** — `<report>_讲解稿.md`: every module gets a speakable 讲解词 (natural-language, first-person) + 演示步骤 (real UI walkthrough with expected effects).
+
+Report styles in `templates/` (one-pager 汇报版 / OKR 版 / 大厂格式调研 BIGTECH-FORMAT.md). **No emoji**: all artifacts use text labels + bold; color is a companion cue only.
 
 ## Works where your work actually is
 

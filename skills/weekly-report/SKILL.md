@@ -12,10 +12,13 @@ description: >-
 
 # weekly-report — code-work weekly report
 
-Rebuild a truthful, human-readable summary of recent work **from the code**, not from memory. Produce **two** deliverables (plus an **optional PDF export**, see Step 4):
+Rebuild a truthful, human-readable summary of recent work **from the code**, not from memory. Produce **three** deliverables:
 
 1. An **archiveable dated report** (Markdown) — written to disk.
-2. A **short spoken summary** (3–5 lines, user-voice) — printed in your final reply.
+2. A **PDF export** of that report — rendered (Step 4, **required**).
+3. A **short spoken summary** (3–5 lines, user-voice) — printed in your final reply.
+
+**Format rule（无 emoji）**: every artifact this skill emits — report, 讲解稿, PDF, rendered HTML — uses **text labels and bold** for structure (已交付 / 指标 / 风险·遗留 / 下周计划 / 亮点), **never emoji**; color is only a companion cue, never the sole signal. 版式分三档：详细归档版（Step 3 默认）、汇报版（templates/one-pager-汇报版.md）、OKR 版（templates/okr-版.md）；选型依据与参考来源见 templates/BIGTECH-FORMAT.md（非安装副本则以仓库根 templates/ 为准）。
 
 If the evidence shows nothing happened in the window, **say so honestly**. Never invent work, never pad with old commits.
 
@@ -37,7 +40,7 @@ Ask / confirm, then record:
 
 ### 1a. Local evidence — run the collector (deterministic)
 
-If `evidence.mjs` is available next to this skill, use it — it returns JSON with the window's commits, changed files, **code atoms** (new definitions/routes/columns per file), renames, regenerated noise, and any prior `.weekly-report/` sidecar:
+If `evidence.mjs` is available next to this skill, use it — it returns JSON with the window's commits, changed files, **per-file + per-commit + total line counts** (additions/deletions via numstat; `summary.churn` = window totals), **code atoms** (new definitions/routes/columns per file), renames, regenerated noise, and any prior `.weekly-report/` sidecar:
 
 ```bash
 node <skill-dir>/evidence.mjs <dir> --days <N> [--author "<name or email>"]
@@ -132,15 +135,24 @@ Structure:
 # <YYYY-MM-DD> 周报（<window>）
 
 ## 一页汇报（可直接照念）
+- 结论先行（BLUF）：第一行就是本周最重要的那条成绩/结论，不是"本周开展了…"；
 - ≤1 line each, user-voice, copy-pasteable for stand-up / report system.
+
+## 数据快照（代码改变量）
+- 提交数 / 变更文件数 / **代码行数：+N −M**（`summary.churn`；注明是否含噪声文件，含则同时给去掉 noiseFileSet 后的数）
+- 若按模块分摊更方便说明，可给一张表格：模块 | 文件数 | +行 −行（来自各文件的 additions/deletions）
 
 ## 本周工作明细
 ### 模块 A：<feature name>
 - user-voice goal / what changed
-- evidence: commit hashes, changed file paths, diff highlights
-- **🎤 讲解词（可照读）**：2–4 句自然语言白话（背景 → 做了什么 → 结果），口语化、少术语；
+- 改动量：N files（+a −d）
+- evidence: commit hashes, changed file paths
+- **diff 摘录**：2–4 段代表性 diff（每段 ≤12 行），用
+  `git -C <dir> show <hash> -- <key-file>` 拉，只摘最能说明"做了什么"的片段
+  （新接口签名/路由/核心逻辑/新表列/提示词片段），不要整文件粘贴；标注 `file:line`
+- **讲解词（可照读）**：2–4 句自然语言白话（背景 → 做了什么 → 结果），口语化、少术语；
   这是把 evidences/atoms 翻译成"讲给人听的"版本，不是再罗列一次
-- **👀 演示步骤**：3–6 步真实可操作序列（打开哪个页面 → 点什么 → 预期看到什么），
+- **演示步骤**：3–6 步真实可操作序列（打开哪个页面 → 点什么 → 预期看到什么），
   让汇报者照着就能在真实系统里现场演示，每步给出「预期效果」标注
 ### 模块 B：…
 
@@ -153,7 +165,7 @@ Structure:
 ### Presentation script (可选，默认产出)
 
 If the report will be *demoed* to managers / customers (not just filed), also produce a
-<report>_讲解稿.md next to the report: per module, `🎤 讲解词` + `👀 演示步骤` copied verbatim,
+<report>_讲解稿.md next to the report: per module, `讲解词` + `演示步骤` copied verbatim,
 with a header "How to demo" — so the presenter can open the doc and walk through each module
 on the live system without re-reading evidence blocks.
 
@@ -173,24 +185,25 @@ Repeat the **3–5 lines** from the archive header **in your final reply** so th
 
 ---
 
-## Step 4 — Optional: presentation layer (PDF / HTML / numbers / screenshots)
+## Step 4 — PDF export（必产出，收尾前必须执行）
 
-The `.md` stays the archive source of truth. For *showing* the report to a manager or customer, two renderers ship next to this SKILL.md (zero npm deps, headless Edge/Chrome — engine order `$CHROME_BIN` → Edge → Chrome):
+The `.md` is the archive source of truth; the **PDF is a required deliverable** — record the exact line above in Step 1 quoting evidence, then **before answering, ALWAYS render a PDF** and verify it exists. Two renderers ship next to this SKILL.md (zero npm deps, headless Edge/Chrome — engine order `$CHROME_BIN` → Edge → Chrome):
 
-1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF).
-2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]`:
+1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF). Use this as the default — it satisfies the requirement with one command.
+2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]` — for showing the report to a manager/customer; it also writes a PDF:
    - **KPI strip + per-day commit bar chart** built from `evidence.mjs` output (commits / feat+fix / modules / files; single-series validated blue, zero-commit days shown grey — the truth, not a curated curve);
-   - **section styling** by heading keywords: ✅ shipped (green) / 📊 metrics / ⚠️ risk·遗留 (amber) / 📅 next (blue) chips — icon + label always, never color alone;
+   - **section styling** by heading keywords: 已交付 (green) / 指标 (dark-blue) / 风险·遗留 (amber) / 下周计划 (blue) chips — label always, never color alone;
    - **screenshot gallery**: pass `--urls` for pages it should capture itself (e.g. the product's public URLs — a real page beats a paragraph) or `--shots-dir` for files you have; images embed as `data:` URIs so the HTML is one self-contained file;
    - writes `<report-base>-展示.html` + `<report-base>-展示.pdf` next to the `.md`.
 
-Report styles live in `templates/` — `one-pager-汇报版.md` (manager-facing: 重点突破 1–2 项 → ✅已交付 → 📊指标 with Δ → ⚠️风险/需支援 → 📅下周 Top 3 → 亮点), `okr-版.md` (O/KR with 目标 vs 实际), plus `BIGTECH-FORMAT.md`, the survey behind these. If presentation matters, the 一页汇报 section should focus 1–2 项重点突破, and the report should keep explicit ⚠️ / 📅 slots — code evidence can't fill 风险/需支援/下周计划, leave them as honest placeholders for the user.
+Report styles live in `templates/` — `one-pager-汇报版.md` (manager-facing: 重点突破 1–2 项 → 已交付 → 指标 with Δ → 风险/需支援 → 下周 Top 3 → 亮点), `okr-版.md` (O/KR with 目标 vs 实际), plus `BIGTECH-FORMAT.md`, the survey behind these. If presentation matters, the 一页汇报 section should focus 1–2 项重点突破, and the report should keep explicit 风险/需支援 and 下周计划 slots — code evidence can't fill those, leave them as honest placeholders for the user.
 
-Both are **best-effort**: no browser → deliver the `.md` (or HTML) and say the PDF was skipped. Verify the output exists and is non-empty before reporting success.
+**Verification & honesty**: check the output file exists and is non-empty before reporting success (e.g. `Get-Item` / `ls -la`). If rendering fails (no headless Edge/Chrome available), deliver the `.md` and state plainly in the final reply that the PDF was **skipped because the renderer had no browser** — never claim a PDF you did not produce; never ship an empty file. The PDF name keeps the report's basename: `<report-base>.pdf` or `<report-base>-展示.pdf`, next to the `.md`.
 
 ---
 
 ## Wrap-up
 
-- Confirm the archive path in your reply.
+- Confirm the archive **and PDF** paths in your reply.
+- Keep the 行数统计 honest: it's the collector's counting, not curation — if it includes noise (lockfiles/regenerated), say so in 数据快照.
 - Gently note: mid-week commits/stashes make the next report measurably fuller — code evidence can't recover discussions or discarded directions that never touched a file.

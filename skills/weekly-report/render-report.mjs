@@ -6,7 +6,7 @@
 // The .md stays the source of truth; this adds what a *presentation* needs:
 //   - KPI stat strip (commits / feat+fix / modules / files)
 //   - per-day commit bar chart (single-series, validated palette, inline SVG)
-//   - section styling: ✅ shipped / 📊 metrics / ⚠️ risk / 📅 next / neutral
+//   - section styling: 已交付 shipped / 指标 metrics / 风险 risk / 下周计划 next / neutral
 //   - auto screenshot gallery (--urls) or your own shots (--shots-dir)
 // Out: <report-base>-展示.html + <report-base>-展示.pdf next to the .md.
 //
@@ -70,13 +70,13 @@ function renderInline(s) {
   return t;
 }
 
-// section kind from heading text (emoji-first; chip carries icon+label, never color alone)
+// section kind from heading text (text-label first; chip carries label, never color alone)
 const SECTION_KIND = [
-  [/✅|交付|完成/, 'shipped', '✅ 已交付'],
-  [/📊|指标|数据/, 'metrics', '📊 指标'],
-  [/⚠️|风险|阻塞|需支援|遗留/, 'risk', '⚠️ 风险 / 遗留'],
-  [/📅|下周|计划|规划|下一步/, 'next', '📅 下周计划'],
-  [/🔁|亮点|复用/, 'glow', '🔁 亮点'],
+  [/已交付|交付|完成|shipped/, 'shipped', '已交付'],
+  [/指标|数据|metrics/, 'metrics', '指标'],
+  [/风险|阻塞|需支援|遗留|risk/, 'risk', '风险 / 遗留'],
+  [/下周|计划|规划|下一步|next/, 'next', '下周计划'],
+  [/亮点|复用|glow/, 'glow', '亮点'],
 ];
 const kindOf = (txt) => SECTION_KIND.find(([re]) => re.test(txt)) || ['', 'neutral', ''];
 
@@ -110,7 +110,7 @@ function mdToHtml(md) {
       else if (level === 2) {
         closeSec();
         const [, , kind, label] = kindOf(text);
-        const title = renderInline(text).replace(/^([✅⚠️📊📅🔁]|🛠)\s*/, '');
+        const title = renderInline(text);
         out.push(kind
           ? `<section class="sec sec-${kind}"><h2><span class="chip chip-${kind}">${label}</span> ${title}</h2>`
           : `<section class="sec"><h2>${title}</h2>`);
@@ -126,7 +126,7 @@ function mdToHtml(md) {
       const q = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) { q.push(renderInline(lines[i].replace(/^>\s?/, ''))); i++; }
       const body = q.join('<br>');
-      out.push(/⚠️|风险|缺失|未提交/.test(body) ? `<blockquote class="warn">${body}</blockquote>` : `<blockquote>${body}</blockquote>`);
+      out.push(/风险|缺失|未提交|需支援/.test(body) ? `<blockquote class="warn">${body}</blockquote>` : `<blockquote>${body}</blockquote>`);
       continue;
     }
     if (/^\s*\|.*\|\s*$/.test(line)) {
@@ -244,7 +244,7 @@ function galleryHtml() {
   rmSync(tmp, { recursive: true, force: true });
   if (!items.length) return '';
   const grid = items.map((it) => `<figure class="shot"><img src="${it.src}" alt="${esc(it.label)}"><figcaption>${esc(it.label)}</figcaption></figure>`).join('');
-  return `<section class="sec sec-shots"><h2><span class="chip chip-neutral">📷 实景截图</span> product at a glance</h2><div class="grid">${grid}</div></section>`;
+  return `<section class="sec sec-shots"><h2><span class="chip chip-neutral">实景截图</span> product at a glance</h2><div class="grid">${grid}</div></section>`;
 }
 
 // ---------- assemble ----------

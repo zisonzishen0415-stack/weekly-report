@@ -16,7 +16,8 @@ You report your work once or twice a week — but your memory of *exactly what y
 
 - **Evidence over memory** — commits, `git status`, `git diff`, recently-modified files, output artifacts. If nothing happened this week, it says so honestly instead of inventing work.
 - **Clustered by feature, not by commit** — one logical chunk of work ("added retry + leak detection to the replace flow") is reported as one item, even if it touched 10 files across 3 commits.
-- **Four deliverables** — an archiveable dated report + a 3–5 line spoken summary you can copy straight into your weekly report / meeting, plus an optional **presentation layer** (KPI strip + per-day commit chart + real-page screenshot gallery → one self-contained HTML/PDF; no npm deps), and an optional **demo script** (`<report>_讲解稿.md`: per-module 🎤 speakable script + 👀 real-UI walkthrough steps with expected effects — walk through the week module-by-module on the live system).
+- **Three deliverables** — an archiveable dated report (with a 数据快照 code-churn section: commits / files / +additions −deletions via `summary.churn`), a **PDF export** (rendered by default, see Step 4), and a 3–5 line spoken summary you can copy straight into your weekly report / meeting. Optional extras: the **presentation layer** (KPI strip + per-day commit chart + real-page screenshot gallery → self-contained HTML/PDF; no npm deps) and the **demo script** (`<report>_讲解稿.md`: per-module speakable 讲解词 + real-UI walkthrough steps with expected effects).
+- **No emoji** — every artifact uses text labels + bold (已交付 / 指标 / 风险·遗留 / 下周计划 / 亮点); color is a companion cue only.
 
 ## Installation
 

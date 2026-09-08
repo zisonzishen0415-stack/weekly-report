@@ -14,15 +14,18 @@
  *   repo,           window: { start, days },
  *   stale: boolean, // last commit predates the window start by a lot
  *   lastCommit: {hash,date,subject,author} | null,
- *   commits:   [{hash,date,author,subject,files:[{path,status,additions,deletions}]}],
- *   uncommitted:{changed:[path], deleted:[path], unstagedDiffStat: {...}} ,
+ *   commits:   [{hash,date,author,subject,additions,deletions,
+ *                files:[{path,status,additions,deletions}]}],  // add/del via numstat; null=binary
+ *   uncommitted:{changed:[path], deleted:[path], unstagedDiffStat: {...},
+ *                churn:{additions,deletions}} ,
  *   recentFiles:[{path,mtime,size}],        // files whose mtime is in window
  *   renames:[{from,to,score}],              // detected pure renames (noise)
  *   regenerated:[path],                     // large machine-generated churn (noise)
  *   atoms:     { path: [{name, kind}] },    // v3: NEW semantic units per changed file
  *                                            //     (lang-agnostic, net-new, from diff)
  *   sidecar:   { file, date, features[] } | null,  // last .weekly-report/ sidecar
- *   summary: { commitCount, changedFileSet:[...], noiseFileSet:[...] }
+ *   summary: { commitCount, changedFileSet:[...], noiseFileSet:[...],
+ *              churn: { additions, deletions } }   // window line totals (uncommitted excluded)
  * }
  *
  * Run:  node scripts/evidence.mjs <dir> --days N [--since YYYY-MM-DD] [--author name|email]
@@ -117,6 +120,32 @@ for (const block of logRaw.split(/\n(?=[0-9a-f]{40}\|)/).filter(Boolean)) {
   out.commits.push(commit);
 }
 
+// per-file add/del line counts (numstat) + per-commit totals — powers the report's 行数统计
+for (const c of out.commits) {
+  let nums = "";
+  try { nums = run("git", ["-C", dir, "show", "--numstat", "--format=", c.hash], { allowFail: true }); } catch { /* merge/complex diffs: leave null */ }
+  const byPath = new Map(); // final path -> {additions, deletions}
+  for (const line of nums.split("\n")) {
+    const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/);
+    if (!m) continue;
+    const path = m[3].split(" => ").pop(); // rename "old => new" → final path
+    byPath.set(path, {
+      additions: m[1] === "-" ? null : Number(m[1]), // "-" = binary file
+      deletions: m[2] === "-" ? null : Number(m[2]),
+    });
+  }
+  let additions = 0, deletions = 0;
+  for (const f of c.files) {
+    const stat = byPath.get(f.to ?? f.from);
+    f.additions = stat?.additions ?? null;
+    f.deletions = stat?.deletions ?? null;
+    if (f.additions) additions += f.additions;
+    if (f.deletions) deletions += f.deletions;
+  }
+  c.additions = additions;
+  c.deletions = deletions;
+}
+
 // uncommitted
 const stRaw = run("git", ["-C", dir, "status", "--short"], { allowFail: true });
 out.uncommitted = { changed: [], deleted: [] };
@@ -132,6 +161,14 @@ out.uncommitted.unstagedDiffStat = diffStatRaw.split("\n").filter(Boolean).slice
   if (m) acc[m[1]] = Number(m[2]);
   return acc;
 }, {});
+// uncommitted add/del totals (working tree vs HEAD, unstaged)
+out.uncommitted.churn = { additions: 0, deletions: 0 };
+for (const line of run("git", ["-C", dir, "diff", "--numstat"], { allowFail: true }).split("\n")) {
+  const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/);
+  if (!m) continue;
+  if (m[1] !== "-") out.uncommitted.churn.additions += Number(m[1]);
+  if (m[2] !== "-") out.uncommitted.churn.deletions += Number(m[2]);
+}
 
 // recent files (mtime in window) — excludes gitignored via git, avoids node_modules etc
 const recRaw = run("git", ["-C", dir, "ls-files", "-co", "--exclude-standard"], { allowFail: true });
@@ -155,7 +192,7 @@ out.regenerated = out.recentFiles
   .map(f => f.path);
 for (const c of out.commits) {
   for (const f of c.files) {
-    if (looksRegenerated(f.to ?? f.from, 0, 0)) out.regenerated.push(f.to ?? f.from);
+    if (looksRegenerated(f.to ?? f.from, f.additions ?? 0, f.deletions ?? 0)) out.regenerated.push(f.to ?? f.from);
   }
 }
 out.regenerated = [...new Set(out.regenerated)];
@@ -309,6 +346,11 @@ out.summary = {
   stale: out.stale,
   changedFileSet: [...realSet].sort(),
   noiseFileSet: [...noiseSet].sort(),
+  churn: { // window line totals over all commit files (regenerated/noise still counts;
+           // subtract per-file if you want "real work only" — noiseFileSet tells you which)
+    additions: out.commits.reduce((s, c) => s + (c.additions ?? 0), 0),
+    deletions: out.commits.reduce((s, c) => s + (c.deletions ?? 0), 0),
+  },
 };
 
 console.log(JSON.stringify(out, null, 2));
