@@ -123,7 +123,7 @@ bash scripts/demo.sh /path/to/your/repo --days 30
 
 The skill is scored on three layers — so improvements are measurable, not vibes:
 
-1. **Evidence layer (deterministic, runs in CI).** `scripts/eval/run.mjs` builds golden fixture repos (one-commit-many-features, cross-commit features, noise/rename rejection, stale-local, empty-window) and checks that `evidence.mjs` surfaces the ground-truth changed files, rejects noise, and detects staleness. Precision/recall/noise-rejection are printed and asserted. No LLM, no network — CI-stable.
+1. **Evidence layer (deterministic, runs in CI).** `scripts/eval/run.mjs` builds golden fixture repos (one-commit-many-features, cross-commit features, noise/rename rejection, stale-local, empty-window, multi-language atoms) and checks that `evidence.mjs` surfaces the ground-truth changed files, rejects noise, detects staleness, and extracts the right code atoms (go/rust/c#/php/ruby/css/sql included). Precision/recall/noise-rejection are printed and asserted. No LLM, no network — CI-stable.
 2. **Render layer (deterministic, runs in CI).** `test/render.test.mjs` renders the fixture report through the real `render-report.mjs` / `render-pdf.mjs` and asserts the HTML structure (KPI tiles, per-day chart incl. zero days, section chips, tables, code fences, data-URI screenshot gallery), plus the PDF honesty contract: with no Chromium engine it must skip cleanly — never fake success. No LLM, no network.
 3. **Clustering layer (optional, run in Claude Code).** `run-agent.mjs` prints instructions to drive a real agent through the SKILL.md against a fixture; `judge.mjs` scores the resulting report's feature-vs-label alignment.
 

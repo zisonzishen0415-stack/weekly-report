@@ -1,0 +1,56 @@
+{
+  "author": "Dev A",
+  "groundTruthFiles": [
+    "internal/search/service.go",
+    "src/lib.rs",
+    "Services/SearchController.cs",
+    "app/SearchService.php",
+    "lib/search.rb",
+    "assets/search.css",
+    "migrations/001_add_virtual.sql"
+  ],
+  "noiseFiles": [
+    "dist/bundle.min.js",
+    "package-lock.json"
+  ],
+  "features": [
+    { "id": "search-impl", "files": ["internal/search/service.go", "src/lib.rs", "Services/SearchController.cs", "app/SearchService.php", "lib/search.rb", "assets/search.css", "migrations/001_add_virtual.sql"], "summaryContains": ["search"] }
+  ],
+  "expectStale": false,
+  "expectedAtoms": {
+    "internal/search/service.go": [
+      { "name": "Engine", "kind": "type" },
+      { "name": "New", "kind": "function" },
+      { "name": "Search", "kind": "function" },
+      { "name": "MaxTopResults", "kind": "const" }
+    ],
+    "src/lib.rs": [
+      { "name": "score", "kind": "function" },
+      { "name": "Hit", "kind": "type" },
+      { "name": "Mode", "kind": "type" },
+      { "name": "Scorer", "kind": "type" },
+      { "name": "MAX_SCORE", "kind": "const" }
+    ],
+    "Services/SearchController.cs": [
+      { "name": "SearchController", "kind": "type" },
+      { "name": "api/search", "kind": "route" },
+      { "name": "SearchAsync", "kind": "method" }
+    ],
+    "app/SearchService.php": [
+      { "name": "SearchService", "kind": "type" },
+      { "name": "query", "kind": "function" }
+    ],
+    "lib/search.rb": [
+      { "name": "Search", "kind": "type" },
+      { "name": "query", "kind": "function" }
+    ],
+    "assets/search.css": [
+      { "name": "result-card", "kind": "selector" },
+      { "name": "search-box", "kind": "selector" }
+    ],
+    "migrations/001_add_virtual.sql": [
+      { "name": "assets", "kind": "table" },
+      { "name": "is_virtual", "kind": "column" }
+    ]
+  }
+}

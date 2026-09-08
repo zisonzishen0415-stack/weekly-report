@@ -22,7 +22,9 @@
  *   renames:[{from,to,score}],              // detected pure renames (noise)
  *   regenerated:[path],                     // large machine-generated churn (noise)
  *   atoms:     { path: [{name, kind}] },    // v3: NEW semantic units per changed file
- *                                            //     (lang-agnostic, net-new, from diff)
+ *                                            //     (lang-agnostic, net-new, from diff;
+ *                                            //      families: js/ts, java/kt, go, rust, cs,
+ *                                            //      php, ruby, css, sql + generic config keys)
  *   sidecar:   { file, date, features[] } | null,  // last .weekly-report/ sidecar
  *   summary: { commitCount, changedFileSet:[...], noiseFileSet:[...],
  *              churn: { additions, deletions } }   // window line totals (uncommitted excluded)
@@ -110,7 +112,7 @@ out.commits = [];
 for (const block of logRaw.split(/\n(?=[0-9a-f]{40}\|)/).filter(Boolean)) {
   const lines = block.trim().split("\n");
   const [hash, date, an, ae, ...subjArr] = lines[0].split("|");
-  const commit = { hash: hash.slice(0, 8), date, author: an, email: ae, subject: subjArr.join("|"), files: [] };
+  const commit = { hash: hash.slice(0, 8), full: hash, date, author: an, email: ae, subject: subjArr.join("|"), files: [] };
   for (let i = 1; i < lines.length; i++) {
     const m = lines[i].match(/^(A|M|D|R\d*|C\d*)\s+(.+?)(?:\t(.+))?$/);
     if (!m) continue;
@@ -120,30 +122,39 @@ for (const block of logRaw.split(/\n(?=[0-9a-f]{40}\|)/).filter(Boolean)) {
   out.commits.push(commit);
 }
 
-// per-file add/del line counts (numstat) + per-commit totals — powers the report's 行数统计
-for (const c of out.commits) {
-  let nums = "";
-  try { nums = run("git", ["-C", dir, "show", "--numstat", "--format=", c.hash], { allowFail: true }); } catch { /* merge/complex diffs: leave null */ }
-  const byPath = new Map(); // final path -> {additions, deletions}
-  for (const line of nums.split("\n")) {
+// per-file add/del line counts (numstat) + per-commit totals — powers the report's 行数统计.
+// ONE `git log --numstat` pass for the whole window (was: one `git show --numstat` per
+// commit — on a busy week that's 100+ child processes; Windows spawn is not free).
+{
+  const numRaw = run("git", ["-C", dir, "log", `--since=${since}`, ...authorFlag,
+    "--numstat", "--pretty=format:%H%x1f"], { allowFail: true });
+  const numByCommit = new Map(); // full hash -> {path -> {additions, deletions}}
+  let cur = null;
+  for (const line of numRaw.split("\n")) {
+    const hdr = line.match(/^([0-9a-f]{40})\x1f$/);
+    if (hdr) { cur = hdr[1]; numByCommit.set(cur, new Map()); continue; }
+    if (!cur) continue;
     const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/);
     if (!m) continue;
     const path = m[3].split(" => ").pop(); // rename "old => new" → final path
-    byPath.set(path, {
+    numByCommit.get(cur).set(path, {
       additions: m[1] === "-" ? null : Number(m[1]), // "-" = binary file
       deletions: m[2] === "-" ? null : Number(m[2]),
     });
   }
-  let additions = 0, deletions = 0;
-  for (const f of c.files) {
-    const stat = byPath.get(f.to ?? f.from);
-    f.additions = stat?.additions ?? null;
-    f.deletions = stat?.deletions ?? null;
-    if (f.additions) additions += f.additions;
-    if (f.deletions) deletions += f.deletions;
+  for (const c of out.commits) {
+    const byPath = numByCommit.get(c.full) || new Map();
+    let additions = 0, deletions = 0;
+    for (const f of c.files) {
+      const stat = byPath.get(f.to ?? f.from);
+      f.additions = stat?.additions ?? null;
+      f.deletions = stat?.deletions ?? null;
+      if (f.additions) additions += f.additions;
+      if (f.deletions) deletions += f.deletions;
+    }
+    c.additions = additions;
+    c.deletions = deletions;
   }
-  c.additions = additions;
-  c.deletions = deletions;
 }
 
 // uncommitted
@@ -242,6 +253,36 @@ const ATOM_PATTERNS = {
     [/@(?:Get|Post|Put|Delete|Patch|Request)Mapping\(\s*"?([^"]*)/, "route"],
     [/public\s+(?:static\s+)?[\w<>,[\] ]+\s+([a-z]\w*)\s*\(/, "method"]
   ],
+  "go": [
+    [/^\s*func\s*\([^)]*\)\s*([A-Za-z]\w*)\s*\(/, "function"], // method with receiver
+    [/^\s*func\s+([A-Za-z]\w*)\s*\(/, "function"],
+    [/^\s*type\s+([A-Za-z]\w*)\s+(?:struct|interface)/, "type"],
+    [/^\s*const\s+([A-Za-z]\w*)\s*=/, "const"]
+  ],
+  "rust": [
+    [/^\s*(?:pub\s+)?fn\s+([a-z]\w*)\s*\(/, "function"],
+    [/^\s*(?:pub\s+)?(?:struct|enum)\s+([A-Z]\w*)/, "type"],
+    [/^\s*(?:pub\s+)?trait\s+([A-Z]\w*)/, "type"],
+    [/^\s*(?:pub\s+)?const\s+([A-Z_]\w*)\s*:/, "const"]
+  ],
+  "cs": [
+    [/^\s*(?:public|private|protected|internal|\s)*(?:class|interface|enum|record)\s+([A-Za-z]\w*)/, "type"],
+    [/^\s*\[Http(?:Get|Post|Put|Delete|Patch|Route)\(\s*"([^"]+)"/, "route"],
+    [/^\s*(?:public|private|protected|internal)\s+(?:async\s+)?(?:static\s+)?[\w<>,\[\]? ]*\s+([A-Za-z]\w*)\s*\(/, "method"]
+  ],
+  "php": [
+    [/^\s*(?:final\s+)?class\s+([A-Za-z]\w*)/, "type"],
+    [/^\s*(?:(?:public|protected|private|static|abstract|final)\s+)*function\s+([a-z]\w*)\s*\(/, "function"]
+  ],
+  "ruby": [
+    [/^\s*class\s+([A-Z]\w*)/, "type"],
+    [/^\s*module\s+([A-Z]\w*)/, "type"],
+    [/^\s*def\s+([a-z_]\w*[!?]?)\s*\(?/, "function"]
+  ],
+  "css": [
+    [/^\s*\.([A-Za-z_][\w-]*)\s*\{/, "selector"],
+    [/^\s*#([A-Za-z_][\w-]*)\s*\{/, "selector"]
+  ],
   "py": [
     [/^class\s+([A-Za-z_]\w*)/, "class"],
     [/^(?:async\s+)?def\s+([a-z_]\w*)/, "function"],
@@ -259,6 +300,12 @@ function patternFor(file) {
   const fam = Object.entries({
     "js,ts,tsx,jsx,mjs,cjs,vue": ["js", "ts", "tsx", "jsx", "mjs", "cjs", "vue"],
     "java,kt": ["java", "kt", "kts"],
+    "go": ["go"],
+    "rust": ["rs"],
+    "cs": ["cs"],
+    "php": ["php"],
+    "ruby": ["rb"],
+    "css": ["css"],
     "py": ["py"],
     "sql": ["sql"]
   }).find(([, exts]) => exts.includes(ext));
@@ -266,26 +313,28 @@ function patternFor(file) {
 }
 
 // Collect per-file added/deleted source text over the whole window.
+// ONE `git show -p` per commit (was: one per commit × file — hundreds of spawns);
+// file attribution via `diff --git` headers; R/regenerated sections are dropped.
 const addedLinesByFile = {};   // path -> [line,...]
 const deletedLinesByFile = {}; // path -> [line,...]
 for (const c of out.commits) {
-  const hash = c.hash;
-  for (const f of c.files) {
-    if (f.status === "R" || out.regenerated.includes(f.to ?? f.from)) continue;
-    const path = f.to ?? f.from;
-    // cap: don't pull huge machine diffs; a file touched is still evidence via changedFileSet
-    let diff = "";
-    try {
-      diff = execFileSync("git", ["-C", dir, "show", "--format=", "--no-color", hash, "--", path],
-        { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
-    } catch { continue; }
-    const added = [], deleted = [];
-    for (const line of diff.split("\n")) {
-      if (line.startsWith("+") && !line.startsWith("+++")) added.push(line.slice(1));
-      else if (line.startsWith("-") && !line.startsWith("---")) deleted.push(line.slice(1));
+  let diff = "";
+  try {
+    diff = execFileSync("git", ["-C", dir, "show", "--format=", "--no-color", "-p", c.full],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  } catch { continue; }
+  let cur = null; // current patch section's file path; null = lines ignored
+  for (const line of diff.split("\n")) {
+    const hdr = line.match(/^diff --git .* b\/(.+)$/);
+    if (hdr) {
+      const path = hdr[1].replace(/"/g, "");
+      const meta = c.files.find((f) => (f.to ?? f.from) === path);
+      cur = meta && meta.status !== "R" && !out.regenerated.includes(path) ? path : null;
+      continue;
     }
-    (addedLinesByFile[path] = addedLinesByFile[path] || []).push(...added);
-    (deletedLinesByFile[path] = deletedLinesByFile[path] || []).push(...deleted);
+    if (!cur) continue;
+    if (line.startsWith("+") && !line.startsWith("+++")) (addedLinesByFile[cur] = addedLinesByFile[cur] || []).push(line.slice(1));
+    else if (line.startsWith("-") && !line.startsWith("---")) (deletedLinesByFile[cur] = deletedLinesByFile[cur] || []).push(line.slice(1));
   }
 }
 // uncommitted diff adds (working tree vs HEAD) for changed files

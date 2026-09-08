@@ -87,7 +87,7 @@ Also check for recently-generated outputs that indicate *what was being attempte
 
 The collector's output is your working set:
 - **`summary.changedFileSet`** — real changed files this window (ground truth list).
-- **`atoms`** — the NEW semantic units extracted from each file's diff (`{path → [{name, kind}]}`, kind ∈ function/class/const/interface/type/method/route/column/table/key). **These are the code's own vocabulary** — trust them over commit wording.
+- **`atoms`** — the NEW semantic units extracted from each file's diff (`{path → [{name, kind}]}`, kind ∈ function/class/const/interface/type/method/route/column/table/key/selector; families: js/ts, java/kt, go, rust, cs, php, ruby, css, sql + generic config keys). **These are the code's own vocabulary** — trust them over commit wording.
 - **`renames` / `noiseFileSet`** — NOT features (mention once in 备注).
 
 Cluster **atoms + files** into features; use commit messages ONLY as auxiliary color, and when a commit message and the code disagree, **believe the code**:
