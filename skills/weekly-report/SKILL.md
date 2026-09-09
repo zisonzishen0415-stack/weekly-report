@@ -167,9 +167,20 @@ Structure:
 ## 模块 …：…
 （同结构；合并 / release / 发版日志 / 文档整理单独成模块）
 
+## 风险 / 需支援
+- 每条写清：**风险是什么 → 影响什么 → 需要谁做什么**。无则写「无」。
+- **这节是周报职责，不要省**：主管唯一能"动手"的就是这里。
+- 代码证据看不出人力和协作诉求时，用 `[待确认]` 占位并明确写出问题，不要编。
+
+## 下周计划（Top 3，按序）
+1. <可验收的一句话：做到什么算完成>
+2. …
+3. …
+- 来源：分支未合并、进行中任务、上一条风险的对策。同样 `[待确认]` 占位好过省略。
+
 ## 备注 / 遗留
-- unfinished / blocked / tried-and-discarded, marked honestly when not visible in git
 - 状态边界：哪些随哪个版本发布、哪些还在分支上、哪些未提交（逐条点明）
+- unfinished / blocked / tried-and-discarded, marked honestly when not visible in git
 - excluded noise (data snapshots, renames) — one line so a reader knows they were seen and rejected
 - scope notes: which dirs/repos were scanned, and that uncommitted/remote-only work outside the scan is not included
 ```
@@ -189,7 +200,10 @@ Structure:
    - 若用户只要单人口径，用 `--author` 过滤后再写。
 3. **模块四件套**：目标 → 做法与关键决策 → 效果 → 可核验。**重心在中间两块**——
    上级要看的是「你做出来什么、怎么想的」，不是行数。不写讲解词、演示步骤，也不另出讲解稿。
-4. **不报活动量**：交付清单在前，代码统计一律不进正文（提交数、行数、文件数都不进）。
+4. **风险与下周计划是必备节，不是可选**：报告结尾必须有
+   「风险 / 需支援」（风险 → 影响 → 需要谁做什么）和「下周计划 Top 3」（每条可验收）。
+   这两节主管唯一能"动手"，代码证据填不出来就用 `[待确认]` 占位并写明问题——**不许省**。
+5. **不报活动量**：交付清单在前，代码统计一律不进正文（提交数、行数、文件数都不进）。
    大厂周报的口径是「结果 + 业务指标 Δ」；没有业务指标就诚实留白，不要用代码量顶上。
 5. **KPI 精准性**（要用到数字时，必须经得起复核）：
    - **窗口双端锁定**：`--since` **和** `--until` 都要给。只给 `--since` 会把窗口之后的提交算进来。
