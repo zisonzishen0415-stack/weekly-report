@@ -29,7 +29,8 @@ If the evidence shows nothing happened in the window, **say so honestly**. Never
 Ask / confirm, then record:
 
 - **Directories** to scan. If the user gives none, ask which projects are in scope (keep it to the ones they actually worked in).
-- **Time window** — default **last 7 days** (from today, backwards). Accept `近 N 天` / `last N days` / `上周` / explicit dates.
+- **Time window** — default **last 7 days** (from today, backwards). Accept `近 N 天` / `last N days` / `上周` / explicit dates / an explicit range like `上周六下午到现在` (honor it exactly, and write that range verbatim into the report title).
+- **Authors** — if the window has ≥2 git authors, plan a per-person report (see Step 3 口径约定 #2). Confirm who "本人" is (default: `git config user.name`).
 - **Where the code actually lives.** Critical: do NOT assume the local folder is current.
   - This skill ships a deterministic collector `evidence.mjs` next to this file — use it for the local case (Step 1a).
   - If the local clone is stale (its last commit predates the window significantly), **the real work may live on a remote** — a teammate's repo, CI, a work PC. Route to remote evidence (Step 1b) instead of reporting a stale clone as "this week". If the user says "my real work is on my other machine / pushed to a teammate's repo", trust that over the local folder.
@@ -134,33 +135,60 @@ Structure:
 ```
 # <YYYY-MM-DD> 周报（<window>）
 
+> 数据来源：<repos/dirs> 的 git 提交（本窗口 N 条，作者 …）+ 未提交改动 + 代码原子提取 + 产出文档。
+> 口径说明：本期按「<window>」整段统计。**单项任务的完成时点不逐条标注**，模块内统一用「本期」表述。
+> 分段：第一部分为本人（<me>），第二部分为<同事>（<other>）。发布线（合并 PR / release / 发版日志）由 <who> 执行。
+
 ## 一页汇报（可直接照念）
-- 结论先行（BLUF）：第一行就是本周最重要的那条成绩/结论，不是"本周开展了…"；
+- 结论先行（BLUF）：第一行就是本期最重要的那条成绩/结论，不是"本期开展了…"；
 - ≤1 line each, user-voice, copy-pasteable for stand-up / report system.
 
 ## 数据快照（代码改变量）
-- 提交数 / 变更文件数 / **代码行数：+N −M**（`summary.churn`；注明是否含噪声文件，含则同时给去掉 noiseFileSet 后的数）
-- 若按模块分摊更方便说明，可给一张表格：模块 | 文件数 | +行 −行（来自各文件的 additions/deletions）
+- 总量：提交数 / 变更文件数 / **代码行数：+N −M**（`summary.churn`；注明是否含噪声文件，含则同时给去掉 noiseFileSet 后的数）
+- 按人一张表：作者 | 提交 | 变更文件 | +行 −行 | 备注
+- 按模块一张表：模块 | 负责人 | +行 −行（来自各文件的 additions/deletions）
 
-## 本周工作明细
-### 模块 A：<feature name>
-- user-voice goal / what changed
-- 改动量：N files（+a −d）
-- evidence: commit hashes, changed file paths
+# 第一部分：本人（<me>）
+## 模块 A：<feature name>
+- **目标**：user-voice goal（一句话说清为谁解决什么）
+- **改动量**：N files（+a −d）
+- **evidence**：commit hashes + changed file paths（只写 hash，**不写提交日期**）
 - **diff 摘录**：2–4 段代表性 diff（每段 ≤12 行），用
   `git -C <dir> show <hash> -- <key-file>` 拉，只摘最能说明"做了什么"的片段
   （新接口签名/路由/核心逻辑/新表列/提示词片段），不要整文件粘贴；标注 `file:line`
 - **讲解词（可照读）**：2–4 句自然语言白话（背景 → 做了什么 → 结果），口语化、少术语；
   这是把 evidences/atoms 翻译成"讲给人听的"版本，不是再罗列一次
 - **演示步骤**：3–6 步真实可操作序列（打开哪个页面 → 点什么 → 预期看到什么），
-  让汇报者照着就能在真实系统里现场演示，每步给出「预期效果」标注
-### 模块 B：…
+  让汇报者照着就能在真实系统里现场演示，每步给出「预期效果」标注；
+  未部署/未提交的模块必须写明「需本地起服务」并给验收步骤
+## 模块 B：…
+
+# 第二部分：<同事>（<other>）
+## 模块 …：…
+（同结构；合并 / release / 发版日志 / 文档整理单独成模块）
 
 ## 备注 / 遗留
 - unfinished / blocked / tried-and-discarded, marked honestly when not visible in git
+- 状态边界：哪些随哪个版本发布、哪些还在分支上、哪些未提交（逐条点明）
 - excluded noise (data snapshots, renames) — one line so a reader knows they were seen and rejected
 - scope notes: which dirs/repos were scanned, and that uncommitted/remote-only work outside the scan is not included
 ```
+
+### 报告口径约定（默认，除非用户另有要求）
+
+1. **模糊完成时间**（默认开启）：报告只给区间——窗口写在标题里，模块内统一用「本期」；
+   - evidence 只列 commit hash，**不列提交日期/时间**；
+   - 数据快照只给汇总数，不给逐日明细，**不要逐日提交图**；
+   - 用户明确要求时间线（"按天列一下"）时才给日期。
+2. **分人汇报**：窗口内 git 作者 ≥2 时按人分段——第一部分本人，第二部分其他作者。
+   - 先 `git log --since=<window> --pretty='%an|%ae' | sort | uniq -c` 确认作者集合；
+     本人 = 用户指定，否则取 `git config user.name`。
+   - 每个模块标负责人；merge / release / 发版日志归提交者，作为"已发布"上下文。
+   - 未提交改动按当前分支归属计入本人，模块标题标注「进行中，未提交」。
+   - 若用户只要单人口径，用 `--author` 过滤后再写。
+3. **模块六件套**：目标 → 改动量 → evidence → diff 摘录 → 讲解词 → 演示步骤，缺一不可。
+4. **诚实边界**：未提交 / 未发布 / 在别的分支的，必须在「备注 / 遗留」逐条点明状态；
+   演示步骤对不可演示的模块写明"需本地起服务"，不假装能现场演示。
 
 ### Presentation script (可选，默认产出)
 
@@ -191,7 +219,7 @@ The `.md` is the archive source of truth; the **PDF is a required deliverable** 
 
 1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF). Use this as the default — it satisfies the requirement with one command.
 2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]` — for showing the report to a manager/customer; it also writes a PDF:
-   - **KPI strip + per-day commit bar chart** built from `evidence.mjs` output (commits / feat+fix / modules / files; single-series validated blue, zero-commit days shown grey — the truth, not a curated curve);
+   - **KPI strip** built from `evidence.mjs` output (commits / feat+fix / modules / files). The report's leading `> 数据来源 / 口径说明 / 分段` block is lifted into the cover as labeled meta rows. **No per-day commit chart** — completion timing stays deliberately coarse (口径约定 #1);
    - **section styling** by heading keywords: 已交付 (green) / 指标 (dark-blue) / 风险·遗留 (amber) / 下周计划 (blue) chips — label always, never color alone;
    - **screenshot gallery**: pass `--urls` for pages it should capture itself (e.g. the product's public URLs — a real page beats a paragraph) or `--shots-dir` for files you have; images embed as `data:` URIs so the HTML is one self-contained file;
    - writes `<report-base>-展示.html` + `<report-base>-展示.pdf` next to the `.md`.

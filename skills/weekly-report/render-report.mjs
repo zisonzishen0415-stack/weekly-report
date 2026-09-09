@@ -5,7 +5,8 @@
 //
 // The .md stays the source of truth; this adds what a *presentation* needs:
 //   - KPI stat strip (commits / feat+fix / modules / files)
-//   - per-day commit bar chart (single-series, validated palette, inline SVG)
+//   - cover meta block: the report's leading 数据来源/口径说明, split into labeled rows
+//     (no per-day commit chart — completion timing stays deliberately coarse)
 //   - section styling: 已交付 shipped / 指标 metrics / 风险 risk / 下周计划 next / neutral
 //   - auto screenshot gallery (--urls) or your own shots (--shots-dir)
 // Out: <report-base>-展示.html + <report-base>-展示.pdf next to the .md.
@@ -41,7 +42,7 @@ if (!mdFile || !existsSync(mdFile)) {
 }
 
 // ---------- stats (from evidence.json, additive: everything optional) ----------
-let stats = { commits: 0, feat: 0, fix: 0, files: 0, perDay: new Map(), windowStart: null, windowEnd: null };
+let stats = { commits: 0, feat: 0, fix: 0, files: 0 };
 if (evidenceFile && existsSync(evidenceFile)) {
   const ev = JSON.parse(readFileSync(evidenceFile, 'utf8'));
   const cm = ev.commits || [];
@@ -49,14 +50,7 @@ if (evidenceFile && existsSync(evidenceFile)) {
   stats.feat = cm.filter((c) => /^feat/i.test(c.subject)).length;
   stats.fix = cm.filter((c) => /^fix/i.test(c.subject)).length;
   stats.files = new Set(cm.flatMap((c) => c.files.map((f) => f.to || f.from || f.path))).size;
-  for (const c of cm) {
-    const d = String(c.date).slice(0, 10);
-    stats.perDay.set(d, (stats.perDay.get(d) || 0) + 1);
-  }
-  stats.windowStart = ev.window?.start || null;
 }
-const today = new Date().toISOString().slice(0, 10);
-stats.windowEnd = today;
 
 // ---------- markdown -> presentation HTML ----------
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -83,6 +77,7 @@ const kindOf = (txt) => SECTION_KIND.find(([re]) => re.test(txt)) || ['', 'neutr
 function mdToHtml(md) {
   const lines = md.replace(/\r\n?/g, '\n').split('\n');
   const out = [];
+  const meta = [];   // 报告开头的 数据来源/口径说明 → 提到封面，按行分段
   let i = 0;
   let listStack = [];
   let secOpen = false;
@@ -120,11 +115,18 @@ function mdToHtml(md) {
       i++;
       continue;
     }
-    if (/^\s*(---|\*\*\*)\s*$/.test(line)) { closeLists(0); closeSec(); out.push('<hr>'); i++; continue; }
+    if (/^\s*(---|\*\*\*)\s*$/.test(line)) {
+      closeLists(0);
+      // 封面元信息（数据来源/口径说明）后紧跟的分隔线：不再单独渲染成一条横线
+      if (out.length === 0 && meta.length) { i++; continue; }
+      closeSec(); out.push('<hr>'); i++; continue;
+    }
     if (/^>\s?/.test(line)) {
       closeLists(0);
       const q = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) { q.push(renderInline(lines[i].replace(/^>\s?/, ''))); i++; }
+      // 正文开始前的引用块 = 报告的 数据来源/口径说明，收进封面分段展示
+      if (out.length === 0) { meta.push(...q); continue; }
       const body = q.join('<br>');
       out.push(/风险|缺失|未提交|需支援/.test(body) ? `<blockquote class="warn">${body}</blockquote>` : `<blockquote>${body}</blockquote>`);
       continue;
@@ -159,7 +161,7 @@ function mdToHtml(md) {
   }
   closeLists(0);
   closeSec();
-  return out.join('\n');
+  return { meta, html: out.join('\n') };
 }
 
 // ---------- KPI strip + per-day bar chart (single series; validated palette) ----------
@@ -175,45 +177,22 @@ function kpiStrip() {
 
 function mdModules() {
   const s = readFileSync(mdFile, 'utf8');
-  return (s.match(/^###\s+模块\s*[A-Z]?/gm) || []).length;
+  // 模块标题可能是 ### 模块 A（归档版）或 ## 模块 A（分人版），两种都算
+  return (s.match(/^#{2,3}\s*模块\s*[A-Z]?/gm) || []).length;
 }
 
-const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-function barChart() {
-  if (!stats.windowStart) return '';
-  // window days: evidence start .. today (cap at 45)
-  const days = [];
-  const d0 = new Date(stats.windowStart + 'T00:00:00');
-  const d1 = new Date((stats.commits ? stats.perDay.keys().next().value || today : today) + 'T00:00:00');
-  const end = d1 > new Date(today + 'T00:00:00') ? d1 : new Date(today + 'T00:00:00');
-  for (let d = new Date(d0); d <= end && days.length < 45; d.setDate(d.getDate() + 1)) {
-    const iso = localIso(d);
-    days.push({ iso, n: stats.perDay.get(iso) || 0 });
-  }
-  const max = Math.max(1, ...days.map((x) => x.n));
-  const W = 720, H = 170, padL = 8, padB = 22, padT = 22;
-  const bw = (W - padL * 2) / days.length;
-  const bars = days
-    .map((x) => {
-      const h = max ? (x.n / max) * (H - padB - padT) : 0;
-      const bx = padL + bw * days.indexOf(x) + 2.5;
-      const by = H - padB - h;
-      const label = x.n > 0 ? `<text x="${bx + bw / 2 - 2.5}" y="${by - 7}" class="bv">${x.n}</text>` : '';
-      return `<rect x="${bx}" y="${by}" width="${bw - 5}" height="${Math.max(h, 3)}" rx="4" class="bar ${x.n ? '' : 'zero'}"><title>${x.iso} · ${x.n} 条提交</title></rect>${label}`;
+// 封面元信息：报告开头的 数据来源 / 口径说明，按行拆成带标签的分段（不用每日提交图）
+function metaBlock(meta) {
+  if (!meta.length) return '';
+  const rows = meta
+    .map((line) => {
+      const m = line.match(/^([^：:]{2,8})[：:]\s*(.*)$/);
+      return m
+        ? `<div class="meta-row"><span class="meta-k">${m[1]}</span><span class="meta-v">${m[2]}</span></div>`
+        : `<div class="meta-row"><span class="meta-v">${line}</span></div>`;
     })
     .join('');
-  const ticks = days
-    .map((x) => `<text x="${padL + bw * days.indexOf(x) + bw / 2 - 2.5}" y="${H - 6}" class="bax">${x.iso.slice(5).replace('-', '/')}</text>`)
-    .join('');
-  return `
-  <figure class="chart">
-    <figcaption>每日提交数（${days[0]?.iso} ~ ${today}）</figcaption>
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="每日提交数柱状图">
-      <line x1="${padL}" y1="${H - padB}" x2="${W - padL}" y2="${H - padB}" class="baseline"/>
-      ${bars}${ticks}
-    </svg>
-  </figure>`;
+  return `<div class="meta">${rows}</div>`;
 }
 
 // ---------- screenshot gallery (images embedded as data: URIs — self-contained deliverable) ----------
@@ -250,7 +229,7 @@ function galleryHtml() {
 // ---------- assemble ----------
 const md = readFileSync(mdFile, 'utf8');
 const title = (md.match(/^#\s+(.+)$/m) || [,''])[1];
-const body = mdToHtml(md);
+const { meta, html: body } = mdToHtml(md);
 const shots = galleryHtml();
 
 const CSS = `
@@ -295,13 +274,10 @@ a { color:var(--accent); text-decoration:none; word-break:break-all; }
 .tile { flex:1; border:1px solid var(--line); border-radius:10px; padding:.6em .8em; text-align:center; background:var(--bg); }
 .tile-v { display:block; font-size:1.65em; font-weight:700; color:var(--ink); line-height:1.2; }
 .tile-l { display:block; font-size:.78em; color:var(--ink2); margin-top:.2em; }
-.chart { margin:.8em 0 1.2em; }
-.chart figcaption { font-size:.85em; color:var(--ink2); font-weight:600; margin-bottom:.3em; }
-.chart svg { width:100%; height:auto; }
-.bar { fill:var(--accent); } .bar.zero { fill:var(--line); }
-.baseline { stroke:var(--line); stroke-width:1.5; }
-.bv { font-size:12px; fill:var(--ink2); font-family:inherit; }
-.bax { font-size:10px; fill:var(--ink2); font-family:inherit; text-anchor:middle; }
+.meta { display:flex; flex-direction:column; gap:.35em; margin:.75em 0 0; padding-top:.7em; border-top:1px solid var(--line); }
+.meta-row { display:flex; gap:.6em; font-size:.86em; color:var(--ink2); line-height:1.5; }
+.meta-k { flex:0 0 auto; height:fit-content; font-weight:600; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:.05em .5em; }
+.meta-v { flex:1; min-width:0; }
 .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .shot { margin:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; break-inside:avoid; }
 .shot img { width:100%; display:block; }
@@ -315,7 +291,8 @@ const html = `<!DOCTYPE html>
 <body>
 <section class="cover">
   <h1>${esc(title)}</h1>
-  ${stats.commits ? kpiStrip() + barChart() : ''}
+  ${stats.commits ? kpiStrip() : ''}
+  ${metaBlock(meta)}
 </section>
 ${body}
 ${shots}

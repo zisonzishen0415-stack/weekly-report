@@ -4,15 +4,16 @@
  *
  * The evidence layer has scripts/eval/run.mjs; this covers the OTHER half of the
  * pipeline that previously had no automated coverage: render-report.mjs's
- * hand-rolled md -> HTML parser, KPI strip, per-day chart, section chips,
+ * hand-rolled md -> HTML parser, KPI strip, cover meta rows, section chips,
  * screenshot gallery, and the two PDF paths (render-report + render-pdf).
  *
  * It spawns the REAL scripts against a fixture report (test/fixtures/render/)
  * into a temp dir (so repo stays clean), then asserts on structure:
  *
- *   - HTML: cover title, KPI tiles (computed from evidence.json), bar chart
- *     with zero/no-commit grey days, per-section chips, module cards, tables,
- *     fenced code, warn blockquotes, data-URI screenshot gallery, footer.
+ *   - HTML: cover title, KPI tiles (computed from evidence.json), cover meta
+ *     rows lifted from the leading 数据来源/口径说明 blockquote (and no per-day
+ *     chart), per-section chips, module cards, tables, fenced code, warn
+ *     blockquotes, data-URI screenshot gallery, footer.
  *   - PDF: if a Chromium engine exists the PDF must exist and be non-empty;
  *     if not, the script must skip cleanly (never fake success, never crash).
  *
@@ -91,10 +92,13 @@ if (existsSync(htmlPath)) {
     /<span class="tile-v">7<\/span><span class="tile-l">变更文件<\/span>/.test(html)
   );
 
-  check("bar chart svg present", html.includes("<svg") && html.includes('class="baseline"'));
-  check("nonzero bars present", /class="bar "/.test(html));
-  check("zero-commit grey days present", html.includes('class="bar zero"'));
-  check("axis ticks from window start (09/01)", /class="bax">09\/01<\/text>/.test(html));
+  check("no per-day commit chart", !html.includes("每日提交数") && !html.includes('class="baseline"'));
+  check("cover meta rows from leading blockquote",
+    html.includes('class="meta"') &&
+    html.includes('<span class="meta-k">数据来源</span>') &&
+    html.includes('<span class="meta-k">口径说明</span>') &&
+    html.includes('<span class="meta-k">分段</span>'));
+  check("leading blockquote not duplicated below cover", !/<blockquote[^>]*>数据来源/.test(html));
 
   check("section chip 指标", html.includes('class="chip chip-metrics"'));
   check("section chip 风险 / 遗留", html.includes('class="chip chip-risk"') && html.includes(">风险 / 遗留<"));
