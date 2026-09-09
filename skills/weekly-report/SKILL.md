@@ -30,7 +30,7 @@ Ask / confirm, then record:
 
 - **Directories** to scan. If the user gives none, ask which projects are in scope (keep it to the ones they actually worked in).
 - **Time window** — default **last 7 days** (from today, backwards). Accept `近 N 天` / `last N days` / `上周` / explicit dates / an explicit range like `上周六下午到现在` (honor it exactly, and write that range verbatim into the report title).
-- **Authors** — if the window has ≥2 git authors, plan a per-person report (see Step 3 口径约定 #2). Confirm who "本人" is (default: `git config user.name`).
+- **Authors** — if the window has ≥2 git authors, plan a per-person report (see Step 3 口径约定 #2). Confirm the author list; the report addresses people by their author name / GitHub handle.
 - **Where the code actually lives.** Critical: do NOT assume the local folder is current.
   - This skill ships a deterministic collector `evidence.mjs` next to this file — use it for the local case (Step 1a).
   - If the local clone is stale (its last commit predates the window significantly), **the real work may live on a remote** — a teammate's repo, CI, a work PC. Route to remote evidence (Step 1b) instead of reporting a stale clone as "this week". If the user says "my real work is on my other machine / pushed to a teammate's repo", trust that over the local folder.
@@ -137,7 +137,7 @@ Structure:
 
 > 数据来源：<repos/dirs> 的 git 提交（本窗口 N 条，作者 …）+ 未提交改动 + 代码原子提取 + 产出文档。
 > 口径说明：本期按「<window>」整段统计。**单项任务的完成时点不逐条标注**，模块内统一用「本期」表述。
-> 分段：第一部分为本人（<me>），第二部分为<同事>（<other>）。发布线（合并 PR / release / 发版日志）由 <who> 执行。
+> 分段：第一部分为 <author-a>，第二部分为 <author-b>。发布线（合并 PR / release / 发版日志）由 <who> 执行。
 
 ## 一页汇报
 - 结论先行（BLUF）：第一行就是本期最重要的那条成绩/结论，不是"本期开展了…"；
@@ -151,7 +151,7 @@ Structure:
 - 需要区分人时只给提交数 + 主要方向，不给行数。
 - 口径（窗口双端锁定、净变化、剔生成物）见下方「KPI 精准性」；数字放脚注即可。
 
-# 第一部分：本人（<me>）
+# 第一部分：<author-a>
 ## 模块 A：<feature name>
 - **目标**：user-voice goal（为谁解决什么问题）
 - **做法与关键决策**：思路、选型、踩过的坑、放弃的方案——这是「点子」部分，最值得写
@@ -160,7 +160,7 @@ Structure:
   用 `git -C <dir> show <hash> -- <key-file>` 拉，只摘新接口签名/路由/核心逻辑/新表列）
 ## 模块 B：…
 
-# 第二部分：<同事>（<other>）
+# 第二部分：<author-b>
 ## 模块 …：…
 （同结构；合并 / release / 发版日志 / 文档整理单独成模块）
 
@@ -177,11 +177,12 @@ Structure:
    - evidence 只列 commit hash，**不列提交日期/时间**；
    - 数据快照只给汇总数，不给逐日明细，**不要逐日提交图**；
    - 用户明确要求时间线（"按天列一下"）时才给日期。
-2. **分人汇报**：窗口内 git 作者 ≥2 时按人分段——第一部分本人，第二部分其他作者。
-   - 先 `git log --since=<window> --pretty='%an|%ae' | sort | uniq -c` 确认作者集合；
-     本人 = 用户指定，否则取 `git config user.name`。
+2. **分人汇报**：窗口内 git 作者 ≥2 时按人分段。**直接用作者名（git author name / GitHub 账号）称呼，
+   不要写「本人 / 同事」**——报告是给上级看的，人称要能对上具体的人。
+   - 先 `git log --since=<window> --until=<end> --pretty='%an|%ae' | sort | uniq -c` 确认作者集合。
+   - 段落标题就是作者名：`# 第一部分：<author-a>` / `# 第二部分：<author-b>`。
    - 每个模块标负责人；merge / release / 发版日志归提交者，作为"已发布"上下文。
-   - 未提交改动按当前分支归属计入本人，模块标题标注「进行中，未提交」。
+   - 未提交改动按当前分支归属计入该分支的主人，模块标题标注「进行中，未提交」。
    - 若用户只要单人口径，用 `--author` 过滤后再写。
 3. **模块四件套**：目标 → 做法与关键决策 → 效果 → 可核验。**重心在中间两块**——
    上级要看的是「你做出来什么、怎么想的」，不是行数。不写讲解词、演示步骤，也不另出讲解稿。
@@ -224,7 +225,7 @@ The `.md` is the archive source of truth; the **PDF is a required deliverable** 
 1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF). Use this as the default — it satisfies the requirement with one command.
 2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]` — for showing the report to a manager/customer; it also writes a PDF:
    - **KPI strip** built from `evidence.mjs` output (commits / feat+fix / modules / files). The report's leading `> 数据来源 / 口径说明 / 分段` block is lifted into the cover as labeled meta rows. **No per-day commit chart** — completion timing stays deliberately coarse (口径约定 #1);
-   - **cover identity + optional brand watermark**: `--author` / `--github` / `--avatar` render avatar + name + GitHub handle at the top of the report. **Pass one entry per author in the window, comma-separated, 本人 first** (`--github "me,theirs"` / `--author "我,同事"`) so a multi-person report shows every participant; single-person defaults come from `git config user.name` + `gh api user`, with initials as the offline fallback (generic, not tied to any org). `--brand <logo.svg>` lays a semi-transparent watermark over the page. **Never bundle a company logo in this repo**; if the user points `--brand` at their own asset (e.g. Pamera's `logo.svg`), keep it their choice and say in the README it is company-internal only;
+   - **cover identity + optional brand watermark**: `--author` / `--github` / `--avatar` render avatar + name + GitHub handle at the top of the report. **Pass one entry per author in the window, comma-separated** (`--github "login-a,login-b"` / `--author "name-a,name-b"`) so a multi-person report shows every participant; single-person defaults come from `git config user.name` + `gh api user`, with initials as the offline fallback (generic, not tied to any org). `--brand <logo.svg>` lays a semi-transparent watermark over the page. **Never bundle a company logo in this repo**; if the user points `--brand` at their own asset (e.g. Pamera's `logo.svg`), keep it their choice and say in the README it is company-internal only;
    - **section styling** by heading keywords: 已交付 (green) / 指标 (dark-blue) / 风险·遗留 (amber) / 下周计划 (blue) chips — label always, never color alone;
    - **screenshot gallery**: pass `--urls` for pages it should capture itself (e.g. the product's public URLs — a real page beats a paragraph) or `--shots-dir` for files you have; images embed as `data:` URIs so the HTML is one self-contained file;
    - writes `<report-base>-展示.html` + `<report-base>-展示.pdf` next to the `.md`.
