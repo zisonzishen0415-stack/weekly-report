@@ -43,6 +43,7 @@ const splitList = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolea
 const authorArgs = splitList(opt('--author'));   // 姓名
 const githubArgs = splitList(opt('--github'));   // GitHub 账号（用于取头像）
 const avatarArgs = splitList(opt('--avatar'));   // 本地头像文件（优先于按账号拉取）
+const noKpi = args.includes('--no-kpi');  // 一页纸这类"不报活动量"的文档：只保留身份条/水印/封面说明
 
 if (!mdFile || !existsSync(mdFile)) {
   console.error('usage: node render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "..."] [--shots-dir <dir>] [--out <file.pdf>]');
@@ -392,7 +393,7 @@ const html = `<!DOCTYPE html>
 <section class="cover">
   ${identity}
   <h1>${esc(title)}</h1>
-  ${stats.commits ? kpiStrip() : ''}
+  ${stats.commits && !noKpi ? kpiStrip() : ''}
   ${metaBlock(meta)}
 </section>
 ${body}

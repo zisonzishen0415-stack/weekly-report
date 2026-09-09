@@ -6,7 +6,7 @@ Reconstruct recent code work (default: last 7 days) from git + file-change evide
 
 ## What you get
 
-1. `<YYYY-MM-DD>_周报.md` — the archiveable report (feature clusters + evidence + honest notes), including a 数据快照 section with code churn (commits / files / +N −M line counts from `summary.churn`). Each module ends at a plain **介绍** — no 讲解词, no 演示步骤.
+1. `<YYYY-MM-DD>_周报.md` — the archiveable report (feature clusters + evidence + honest notes), with a 本期成果 section (交付清单 / 已发布 / 进行中) instead of code churn stats. Each module runs 目标 → 做法与关键决策 → 效果 → 可核验 — no 讲解词, no 演示步骤.
 2. A **PDF export** — rendered every run by default (`render-pdf.mjs`; `render-report.mjs` adds the KPI strip + cover meta rows + screenshot gallery). Verify the output exists and is non-empty before reporting success.
 3. A **3–5 line spoken summary** in the reply, ready to copy.
 
