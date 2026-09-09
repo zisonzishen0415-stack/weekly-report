@@ -13,6 +13,17 @@ Reconstruct recent code work (default: last 7 days) from git + file-change evide
 
 Two default conventions worth knowing: **完成时间只给区间**（不逐条标注单项完成时点，也不出逐日提交图），and **多作者时按人分段汇报**（第一部分本人、第二部分其他作者；未提交/未发布在备注里点明状态）。Both are overridable in the prompt.
 
+## Presentation extras (optional, off unless you ask)
+
+Passed through to `render-report.mjs`:
+
+- **`--brand <logo.svg>`** — 半透明品牌水印铺在整页背景（内嵌为 data URI，HTML/PDF 都是单文件）。
+  **本仓库不内置任何公司 logo。** 示例里的 Pamera 字标（`--brand` 指向业务仓库的
+  `catalog-server/viewer/public/logo.svg`）**仅用于本公司内部周报**；其他使用者请换成自己的标识，或干脆不加。
+- **`--author <name>` / `--github <login>` / `--avatar <file>`** — 封面身份条：头像 + 姓名 + GitHub 账号 + 邮箱。
+  这是通用能力，不绑定任何组织：缺省从 `git config user.name` 和 `gh api user` 推断；
+  头像优先用 `--avatar` 指定的本地文件，否则按 `--github` 拉 GitHub 头像（离线时自动回退姓名首字母）。
+
 Report styles in `templates/` (one-pager 汇报版 / OKR 版 / 大厂格式调研 BIGTECH-FORMAT.md). **No emoji**: all artifacts use text labels + bold; color is a companion cue only.
 
 ## Works where your work actually is

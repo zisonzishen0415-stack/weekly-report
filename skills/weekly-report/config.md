@@ -15,6 +15,8 @@ rely on memory. It rebuilds "what I did" from code evidence.
 | Demo script | on by default (Step 3) | Say `不用讲解稿` to skip; per-module 讲解词 + 演示步骤 → `<report>_讲解稿.md` |
 | 完成时间口径 | 模糊（只给区间） | Default: no per-task dates/times anywhere; say `按天列一下` to get a dated timeline |
 | 分人汇报 | 作者 ≥2 时自动分段 | 第一部分本人、第二部分其他作者；say `只报我自己` to scope to one person |
+| 品牌水印 | 关 | `--brand <logo.svg>` 加半透明整页水印；**仓库不含任何公司 logo**（Pamera 字标仅本公司内部周报用） |
+| 封面身份 | 自动推断 | `--author` / `--github` / `--avatar`；缺省取 `git config user.name` + `gh api user`，头像拉不到时回退姓名首字母 |
 | Editable sections | never emoji | All artifacts use text labels + bold; color is a companion cue only |
 
 ## Directory list (editable)

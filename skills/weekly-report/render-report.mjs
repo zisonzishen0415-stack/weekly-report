@@ -15,6 +15,8 @@
 //   node render-report.mjs <report.md> [--evidence <evidence.json>]
 //                                      [--urls "https://a;https://b"]
 //                                      [--shots-dir <dir>]
+//                                      [--brand <logo.svg>]
+//                                      [--author <name>] [--github <login>] [--avatar <file>]
 //                                      [--out <file.pdf>]
 
 import { spawnSync } from 'node:child_process';
@@ -35,6 +37,10 @@ const evidenceFile = opt('--evidence');
 const urls = (opt('--urls') || '').split(';').map((s) => s.trim()).filter(Boolean);
 const shotsDir = opt('--shots-dir');
 const outPdf = opt('--out');
+const brandSvg = opt('--brand');      // 半透明水印（公司 logo SVG；不随技能分发）
+const authorName = opt('--author');   // 封面身份：姓名
+const githubLogin = opt('--github');  // 封面身份：GitHub 账号（用于取头像）
+const avatarFile = opt('--avatar');   // 封面身份：本地头像文件（优先于 --github 拉取）
 
 if (!mdFile || !existsSync(mdFile)) {
   console.error('usage: node render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "..."] [--shots-dir <dir>] [--out <file.pdf>]');
@@ -226,11 +232,76 @@ function galleryHtml() {
   return `<section class="sec sec-shots"><h2><span class="chip chip-neutral">实景截图</span> product at a glance</h2><div class="grid">${grid}</div></section>`;
 }
 
+// ---------- brand watermark + author identity (both optional, both self-contained) ----------
+// 水印：--brand <logo.svg> → 整页半透明背景（data URI 内嵌，HTML/PDF 都是单文件）。
+// 身份：--author / --github / --avatar，缺省回退 git config user.name + gh 登录名。
+function dataUriOfFile(f, mime) {
+  try {
+    return `data:${mime};base64,${readFileSync(f).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+function watermarkCss() {
+  if (!brandSvg || !existsSync(brandSvg)) return '';
+  const uri = dataUriOfFile(brandSvg, 'image/svg+xml');
+  if (!uri) return '';
+  return `
+body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.07;
+  background:url("${uri}") center 42%/44% no-repeat; }`;
+}
+
+function gitCfg(key) {
+  const r = spawnSync('git', ['config', key], { encoding: 'utf8', timeout: 10_000 });
+  return r.status === 0 ? (r.stdout || '').trim() : '';
+}
+
+function ghJq(args) {
+  const r = spawnSync('gh', args, { encoding: 'utf8', timeout: 20_000 });
+  return r.status === 0 ? (r.stdout || '').trim() : '';
+}
+
+async function avatarDataUri(login) {
+  if (avatarFile && existsSync(avatarFile)) {
+    const ext = avatarFile.split('.').pop().toLowerCase();
+    const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png';
+    return dataUriOfFile(avatarFile, mime);
+  }
+  if (!login) return null;
+  const url = ghJq(['api', `users/${login}`, '--jq', '.avatar_url']);
+  if (!url) return null;
+  try {
+    const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}s=160`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length || buf.length > 512 * 1024) return null;
+    return `data:${res.headers.get('content-type') || 'image/png'};base64,${buf.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+async function identityBlock() {
+  const name = authorName || gitCfg('user.name');
+  const login = githubLogin || ghJq(['api', 'user', '--jq', '.login']);
+  const avatar = await avatarDataUri(login);
+  if (!name && !login && !avatar) return '';
+  const initials = (name || login || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?';
+  const face = avatar
+    ? `<img class="avatar" src="${avatar}" alt="">`
+    : `<span class="avatar avatar-initials">${esc(initials)}</span>`;
+  const sub = [login ? `@${login}` : '', gitCfg('user.email')].filter(Boolean).join(' · ');
+  return `<div class="identity">${face}<span class="who"><b>${esc(name || login)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span></div>`;
+}
+
 // ---------- assemble ----------
 const md = readFileSync(mdFile, 'utf8');
 const title = (md.match(/^#\s+(.+)$/m) || [,''])[1];
 const { meta, html: body } = mdToHtml(md);
 const shots = galleryHtml();
+const identity = await identityBlock();
+const watermark = watermarkCss();
 
 const CSS = `
 :root { --ink:#1f2328; --ink2:#57606a; --line:#d8dee4; --bg:#ffffff; --soft:#f6f8fa; --accent:#2a78d6;
@@ -243,6 +314,12 @@ body { font-family:"Microsoft YaHei","Noto Sans CJK SC","PingFang SC","Segoe UI"
 h1 { font-size:2em; margin:0 0 .2em; }
 .cover { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:.9em 1.1em; margin:0 0 1em; }
 .cover h1 { border:0; padding:0; font-size:1.7em; }
+.identity { display:flex; align-items:center; gap:.7em; margin:0 0 .75em; }
+.avatar { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); object-fit:cover; background:var(--bg); }
+.avatar-initials { display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--ink2); }
+.identity .who { display:flex; flex-direction:column; line-height:1.32; }
+.identity .who b { font-size:1.02em; color:var(--ink); }
+.identity .who span { font-size:.82em; color:var(--ink2); }
 h2 { font-size:1.25em; margin:1.5em 0 .7em; break-after:avoid; }
 h3 { font-size:1.1em; margin:1.2em 0 .4em; break-after:avoid; }
 h4 { font-size:1em; margin:1em 0 .3em; }
@@ -287,9 +364,10 @@ a { color:var(--accent); text-decoration:none; word-break:break-all; }
 const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><title>${esc(title || basename(mdFile, '.md'))}</title>
-<style>${CSS}</style></head>
+<style>${CSS}${watermark}</style></head>
 <body>
 <section class="cover">
+  ${identity}
   <h1>${esc(title)}</h1>
   ${stats.commits ? kpiStrip() : ''}
   ${metaBlock(meta)}
