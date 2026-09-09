@@ -18,7 +18,7 @@ Rebuild a truthful, human-readable summary of recent work **from the code**, not
 2. A **PDF export** of that report — rendered (Step 4, **required**).
 3. A **short spoken summary** (3–5 lines, user-voice) — printed in your final reply.
 
-**Format rule（无 emoji）**: every artifact this skill emits — report, 讲解稿, PDF, rendered HTML — uses **text labels and bold** for structure (已交付 / 指标 / 风险·遗留 / 下周计划 / 亮点), **never emoji**; color is only a companion cue, never the sole signal. 版式分三档：详细归档版（Step 3 默认）、汇报版（templates/one-pager-汇报版.md）、OKR 版（templates/okr-版.md）；选型依据与参考来源见 templates/BIGTECH-FORMAT.md（非安装副本则以仓库根 templates/ 为准）。
+**Format rule（无 emoji）**: every artifact this skill emits — report, PDF, rendered HTML — uses **text labels and bold** for structure (已交付 / 指标 / 风险·遗留 / 下周计划 / 亮点), **never emoji**; color is only a companion cue, never the sole signal. 版式分三档：详细归档版（Step 3 默认）、汇报版（templates/one-pager-汇报版.md）、OKR 版（templates/okr-版.md）；选型依据与参考来源见 templates/BIGTECH-FORMAT.md（非安装副本则以仓库根 templates/ 为准）。
 
 If the evidence shows nothing happened in the window, **say so honestly**. Never invent work, never pad with old commits.
 
@@ -156,8 +156,7 @@ Structure:
 - **diff 摘录**：2–4 段代表性 diff（每段 ≤12 行），用
   `git -C <dir> show <hash> -- <key-file>` 拉，只摘最能说明"做了什么"的片段
   （新接口签名/路由/核心逻辑/新表列/提示词片段），不要整文件粘贴；标注 `file:line`
-- **介绍**：2–4 句把这个模块讲清楚——解决了什么问题、做了什么、结果如何。
-  口语、少术语，但**不要**写成讲解词或演示步骤（那是 `要演示版` 才加的）。
+- **介绍**：2–4 句把这个模块讲清楚——解决了什么问题、做了什么、结果如何。口语、少术语。
 ## 模块 B：…
 
 # 第二部分：<同事>（<other>）
@@ -183,21 +182,9 @@ Structure:
    - 每个模块标负责人；merge / release / 发版日志归提交者，作为"已发布"上下文。
    - 未提交改动按当前分支归属计入本人，模块标题标注「进行中，未提交」。
    - 若用户只要单人口径，用 `--author` 过滤后再写。
-3. **模块五件套**：目标 → 改动量 → evidence → diff 摘录 → 介绍。**默认到「介绍」为止**：
-   不写讲解词、不写演示步骤、不单独产出讲解稿（用户说 `要演示版` / `加讲解稿` 时才补，
-   见下方 Presentation script）。
+3. **模块五件套**：目标 → 改动量 → evidence → diff 摘录 → 介绍。到此为止，**不要**再写
+   讲解词、演示步骤，也**不要**另出讲解稿文件——用户已明确不需要这两样。
 4. **诚实边界**：未提交 / 未发布 / 在别的分支的，必须在「备注 / 遗留」逐条点明状态。
-
-### Presentation script (可选，**默认不产出**)
-
-只有当报告要**现场演示**给管理者/客户（而不只是归档）时才做。用户说 `要演示版` /
-`加讲解稿` / `presentation script` 时，在报告旁另出一份 `<report>_讲解稿.md`：
-每个模块给出 `讲解词` + `演示步骤`（原文照抄自报告），开头写 "How to demo"——
-让演示者打开这一份就能逐模块在真实系统里走一遍，不用回翻 evidence。
-
-Write the 讲解词 in the presenter's voice (first person, casual, concrete), and make every
-演示步骤 verifiable against the real UI (page + action + visible effect); if a step can't be
-verified (feature not deployed), say so in that step instead of inventing a visual.
 
 ### Spoken summary (required)
 
