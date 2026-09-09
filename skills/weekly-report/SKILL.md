@@ -156,11 +156,8 @@ Structure:
 - **diff 摘录**：2–4 段代表性 diff（每段 ≤12 行），用
   `git -C <dir> show <hash> -- <key-file>` 拉，只摘最能说明"做了什么"的片段
   （新接口签名/路由/核心逻辑/新表列/提示词片段），不要整文件粘贴；标注 `file:line`
-- **讲解词（可照读）**：2–4 句自然语言白话（背景 → 做了什么 → 结果），口语化、少术语；
-  这是把 evidences/atoms 翻译成"讲给人听的"版本，不是再罗列一次
-- **演示步骤**：3–6 步真实可操作序列（打开哪个页面 → 点什么 → 预期看到什么），
-  让汇报者照着就能在真实系统里现场演示，每步给出「预期效果」标注；
-  未部署/未提交的模块必须写明「需本地起服务」并给验收步骤
+- **介绍**：2–4 句把这个模块讲清楚——解决了什么问题、做了什么、结果如何。
+  口语、少术语，但**不要**写成讲解词或演示步骤（那是 `要演示版` 才加的）。
 ## 模块 B：…
 
 # 第二部分：<同事>（<other>）
@@ -186,16 +183,17 @@ Structure:
    - 每个模块标负责人；merge / release / 发版日志归提交者，作为"已发布"上下文。
    - 未提交改动按当前分支归属计入本人，模块标题标注「进行中，未提交」。
    - 若用户只要单人口径，用 `--author` 过滤后再写。
-3. **模块六件套**：目标 → 改动量 → evidence → diff 摘录 → 讲解词 → 演示步骤，缺一不可。
-4. **诚实边界**：未提交 / 未发布 / 在别的分支的，必须在「备注 / 遗留」逐条点明状态；
-   演示步骤对不可演示的模块写明"需本地起服务"，不假装能现场演示。
+3. **模块五件套**：目标 → 改动量 → evidence → diff 摘录 → 介绍。**默认到「介绍」为止**：
+   不写讲解词、不写演示步骤、不单独产出讲解稿（用户说 `要演示版` / `加讲解稿` 时才补，
+   见下方 Presentation script）。
+4. **诚实边界**：未提交 / 未发布 / 在别的分支的，必须在「备注 / 遗留」逐条点明状态。
 
-### Presentation script (可选，默认产出)
+### Presentation script (可选，**默认不产出**)
 
-If the report will be *demoed* to managers / customers (not just filed), also produce a
-<report>_讲解稿.md next to the report: per module, `讲解词` + `演示步骤` copied verbatim,
-with a header "How to demo" — so the presenter can open the doc and walk through each module
-on the live system without re-reading evidence blocks.
+只有当报告要**现场演示**给管理者/客户（而不只是归档）时才做。用户说 `要演示版` /
+`加讲解稿` / `presentation script` 时，在报告旁另出一份 `<report>_讲解稿.md`：
+每个模块给出 `讲解词` + `演示步骤`（原文照抄自报告），开头写 "How to demo"——
+让演示者打开这一份就能逐模块在真实系统里走一遍，不用回翻 evidence。
 
 Write the 讲解词 in the presenter's voice (first person, casual, concrete), and make every
 演示步骤 verifiable against the real UI (page + action + visible effect); if a step can't be
@@ -220,7 +218,7 @@ The `.md` is the archive source of truth; the **PDF is a required deliverable** 
 1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF). Use this as the default — it satisfies the requirement with one command.
 2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]` — for showing the report to a manager/customer; it also writes a PDF:
    - **KPI strip** built from `evidence.mjs` output (commits / feat+fix / modules / files). The report's leading `> 数据来源 / 口径说明 / 分段` block is lifted into the cover as labeled meta rows. **No per-day commit chart** — completion timing stays deliberately coarse (口径约定 #1);
-   - **cover identity + optional brand watermark**: `--author` / `--github` / `--avatar` render an avatar + name + GitHub handle line at the top of the report (defaults: `git config user.name`, `gh api user`, initials fallback — generic, not tied to any org). `--brand <logo.svg>` lays a semi-transparent watermark over the page. **Never bundle a company logo in this repo**; if the user points `--brand` at their own asset (e.g. Pamera's `logo.svg`), keep it their choice and say in the README it is company-internal only;
+   - **cover identity + optional brand watermark**: `--author` / `--github` / `--avatar` render avatar + name + GitHub handle at the top of the report. **Pass one entry per author in the window, comma-separated, 本人 first** (`--github "me,theirs"` / `--author "我,同事"`) so a multi-person report shows every participant; single-person defaults come from `git config user.name` + `gh api user`, with initials as the offline fallback (generic, not tied to any org). `--brand <logo.svg>` lays a semi-transparent watermark over the page. **Never bundle a company logo in this repo**; if the user points `--brand` at their own asset (e.g. Pamera's `logo.svg`), keep it their choice and say in the README it is company-internal only;
    - **section styling** by heading keywords: 已交付 (green) / 指标 (dark-blue) / 风险·遗留 (amber) / 下周计划 (blue) chips — label always, never color alone;
    - **screenshot gallery**: pass `--urls` for pages it should capture itself (e.g. the product's public URLs — a real page beats a paragraph) or `--shots-dir` for files you have; images embed as `data:` URIs so the HTML is one self-contained file;
    - writes `<report-base>-展示.html` + `<report-base>-展示.pdf` next to the `.md`.

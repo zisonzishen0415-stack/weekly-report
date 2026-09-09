@@ -38,9 +38,11 @@ const urls = (opt('--urls') || '').split(';').map((s) => s.trim()).filter(Boolea
 const shotsDir = opt('--shots-dir');
 const outPdf = opt('--out');
 const brandSvg = opt('--brand');      // 半透明水印（公司 logo SVG；不随技能分发）
-const authorName = opt('--author');   // 封面身份：姓名
-const githubLogin = opt('--github');  // 封面身份：GitHub 账号（用于取头像）
-const avatarFile = opt('--avatar');   // 封面身份：本地头像文件（优先于 --github 拉取）
+// 封面身份：逗号分隔可列多人，按位置配对（本人放第一位）。报告里有几个作者就写几个。
+const splitList = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
+const authorArgs = splitList(opt('--author'));   // 姓名
+const githubArgs = splitList(opt('--github'));   // GitHub 账号（用于取头像）
+const avatarArgs = splitList(opt('--avatar'));   // 本地头像文件（优先于按账号拉取）
 
 if (!mdFile || !existsSync(mdFile)) {
   console.error('usage: node render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "..."] [--shots-dir <dir>] [--out <file.pdf>]');
@@ -262,11 +264,11 @@ function ghJq(args) {
   return r.status === 0 ? (r.stdout || '').trim() : '';
 }
 
-async function avatarDataUri(login) {
-  if (avatarFile && existsSync(avatarFile)) {
-    const ext = avatarFile.split('.').pop().toLowerCase();
+async function avatarDataUri(login, file) {
+  if (file && existsSync(file)) {
+    const ext = file.split('.').pop().toLowerCase();
     const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png';
-    return dataUriOfFile(avatarFile, mime);
+    return dataUriOfFile(file, mime);
   }
   if (!login) return null;
   const url = ghJq(['api', `users/${login}`, '--jq', '.avatar_url']);
@@ -283,16 +285,36 @@ async function avatarDataUri(login) {
 }
 
 async function identityBlock() {
-  const name = authorName || gitCfg('user.name');
-  const login = githubLogin || ghJq(['api', 'user', '--jq', '.login']);
-  const avatar = await avatarDataUri(login);
-  if (!name && !login && !avatar) return '';
-  const initials = (name || login || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?';
-  const face = avatar
-    ? `<img class="avatar" src="${avatar}" alt="">`
-    : `<span class="avatar avatar-initials">${esc(initials)}</span>`;
-  const sub = [login ? `@${login}` : '', gitCfg('user.email')].filter(Boolean).join(' · ');
-  return `<div class="identity">${face}<span class="who"><b>${esc(name || login)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span></div>`;
+  // 报告里有几个作者就渲染几个：--author/--github/--avatar 逗号分隔、按位置配对
+  const count = Math.max(authorArgs.length, githubArgs.length, avatarArgs.length);
+  const people = [];
+  if (count === 0) {
+    // 单人兜底：当前 git 用户 + gh 登录名
+    const name = gitCfg('user.name');
+    const login = ghJq(['api', 'user', '--jq', '.login']);
+    if (name || login) people.push({ name, login, file: null });
+  } else {
+    for (let i = 0; i < count; i++) {
+      people.push({ name: authorArgs[i] || '', login: githubArgs[i] || '', file: avatarArgs[i] || null });
+    }
+  }
+  if (!people.length) return '';
+
+  const cards = [];
+  for (let i = 0; i < people.length; i++) {
+    const p = people[i];
+    const avatar = await avatarDataUri(p.login, p.file);
+    const initials = (p.name || p.login || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?';
+    const face = avatar
+      ? `<img class="avatar" src="${avatar}" alt="">`
+      : `<span class="avatar avatar-initials">${esc(initials)}</span>`;
+    // 邮箱只在单人时展示（多人的话邮箱属于谁分不清）
+    const sub = [p.login ? `@${p.login}` : '', people.length === 1 ? gitCfg('user.email') : ''].filter(Boolean).join(' · ');
+    cards.push(
+      `<span class="person">${face}<span class="who"><b>${esc(p.name || p.login)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span></span>`
+    );
+  }
+  return `<div class="identity">${cards.join('')}</div>`;
 }
 
 // ---------- assemble ----------
@@ -314,7 +336,8 @@ body { font-family:"Microsoft YaHei","Noto Sans CJK SC","PingFang SC","Segoe UI"
 h1 { font-size:2em; margin:0 0 .2em; }
 .cover { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:.9em 1.1em; margin:0 0 1em; }
 .cover h1 { border:0; padding:0; font-size:1.7em; }
-.identity { display:flex; align-items:center; gap:.7em; margin:0 0 .75em; }
+.identity { display:flex; flex-wrap:wrap; align-items:center; gap:.5em 1.6em; margin:0 0 .75em; }
+.person { display:inline-flex; align-items:center; gap:.7em; }
 .avatar { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); object-fit:cover; background:var(--bg); }
 .avatar-initials { display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--ink2); }
 .identity .who { display:flex; flex-direction:column; line-height:1.32; }

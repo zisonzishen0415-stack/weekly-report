@@ -12,11 +12,12 @@ rely on memory. It rebuilds "what I did" from code evidence.
 | Output dir | `…/dev/工作总结/<date>_周报.md` | Edit **Output dir** below |
 | PDF export | **on (required, Step 4)** | Always renders `render-pdf.mjs` (or `render-report.mjs` for the presentation); needs Edge/Chrome (`$CHROME_BIN` override) |
 | Presentation | off | Say `做成展示版` / `presentation`; adds KPI strip + cover meta rows + screenshot gallery (`--urls`/`--shots-dir`). No per-day commit chart |
-| Demo script | on by default (Step 3) | Say `不用讲解稿` to skip; per-module 讲解词 + 演示步骤 → `<report>_讲解稿.md` |
+| Demo script | **off by default** | Say `要演示版` / `加讲解稿` to get per-module 讲解词 + 演示步骤 → `<report>_讲解稿.md` |
+| 模块写法 | 目标→改动量→evidence→diff 摘录→**介绍** | 默认到「介绍」为止，不写讲解词/演示步骤 |
 | 完成时间口径 | 模糊（只给区间） | Default: no per-task dates/times anywhere; say `按天列一下` to get a dated timeline |
 | 分人汇报 | 作者 ≥2 时自动分段 | 第一部分本人、第二部分其他作者；say `只报我自己` to scope to one person |
 | 品牌水印 | 关 | `--brand <logo.svg>` 加半透明整页水印；**仓库不含任何公司 logo**（Pamera 字标仅本公司内部周报用） |
-| 封面身份 | 自动推断 | `--author` / `--github` / `--avatar`；缺省取 `git config user.name` + `gh api user`，头像拉不到时回退姓名首字母 |
+| 封面身份 | 自动推断 | `--author` / `--github` / `--avatar`，逗号分隔可列多人（本人第一位）——报告里有几个作者就写几个；单人缺省取 `git config user.name` + `gh api user`，头像拉不到时回退姓名首字母 |
 | Editable sections | never emoji | All artifacts use text labels + bold; color is a companion cue only |
 
 ## Directory list (editable)
