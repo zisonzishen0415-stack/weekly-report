@@ -411,7 +411,8 @@ if (!engine) {
   console.error('[render-report] no Chromium engine found — PDF skipped (HTML delivered).');
   process.exit(0);
 }
-const pdfPath = outPdf ? resolve(outPdf) : join(dirname(mdFile), `${base}-展示.pdf`);
+// 必须绝对路径：Chromium 的 --print-to-pdf 不认相对路径，会 exit 0 但不写文件（静默失败）
+const pdfPath = resolve(outPdf || join(dirname(mdFile), `${base}-展示.pdf`));
 try { rmSync(pdfPath, { force: true }); } catch { /* 文件被占用（如正被预览）——继续尝试覆盖 */ } // 防旧文件误判“已生成”
 const mtimeBefore = existsSync(pdfPath) ? statSync(pdfPath).mtimeMs : 0;
 const res = spawnSync(
