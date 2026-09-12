@@ -10,11 +10,10 @@
 // Engine detection order: $CHROME_BIN -> Edge (Program Files x86/x64) -> Chrome (User/Program Files).
 // If no engine is found, prints a hint and exits 2 (the caller may skip PDF gracefully).
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { findEngine, printToPdf } from './screenshot.mjs';
 
 // ---------- CLI ----------
 const args = process.argv.slice(2);
@@ -204,28 +203,7 @@ ${mdToHtml(readFileSync(mdFile, 'utf8'))}
 </html>`;
 
 // ---------- engine detection ----------
-const ENGINE_CANDIDATES = [
-  process.env.CHROME_BIN,
-  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-  process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe') : null,
-  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  // macOS / Linux (best-effort)
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium-browser',
-  '/usr/bin/microsoft-edge',
-].filter(Boolean);
-
-let engine = ENGINE_CANDIDATES.find((p) => existsSync(p));
-// PATH fallback: try the bare command name (works on Linux; Windows resolves .exe via PATHEXT)
-if (!engine) {
-  for (const name of ['msedge', 'google-chrome', 'chromium', 'microsoft-edge']) {
-    const probe = spawnSync(name, ['--version'], { stdio: 'ignore' });
-    if (!probe.error) { engine = name; break; }
-  }
-}
+const engine = findEngine();
 if (!engine) {
   console.error(
     '[render-pdf] no Chromium browser found (Edge/Chrome) — skipped PDF.\n' +
@@ -239,21 +217,11 @@ const htmlPath = join(tmpdir(), `weekly-report-${Date.now()}.html`);
 writeFileSync(htmlPath, HTML, 'utf8');
 const pdfPath = resolve(outFile ? outFile : join(dirname(mdFile), basename(mdFile, '.md') + '.pdf'));
 
-const res = spawnSync(
-  engine,
-  [
-    '--headless=new',
-    '--disable-gpu',
-    '--no-pdf-header-footer',
-    `--print-to-pdf=${pdfPath}`,
-    pathToFileURL(htmlPath).href,
-  ],
-  { stdio: 'ignore', timeout: 60_000 }
-);
+const res = await printToPdf({ engine, htmlPath, pdfPath, timeoutMs: 60_000 });
 rmSync(htmlPath, { force: true });
 
-if (res.error || res.status !== 0 || !existsSync(pdfPath) || statSync(pdfPath).size === 0) {
-  console.error(`[render-pdf] failed: ${res.error ? res.error.message : `exit ${res.status ?? res.signal}`} (${pdfPath})`);
+if (!res.ok) {
+  console.error(`[render-pdf] failed: ${res.error} (${pdfPath})`);
   process.exit(1);
 }
-console.log(`[render-pdf] OK → ${pdfPath} (${(statSync(pdfPath).size / 1024).toFixed(1)} KB)`);
+console.log(`[render-pdf] OK → ${pdfPath} (${(res.size / 1024).toFixed(1)} KB)`);

@@ -20,11 +20,10 @@
 //                                      [--out <file.pdf>]
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { findEngine, screenshotUrl } from './screenshot.mjs';
+import { findEngine, printToPdf, screenshotUrl } from './screenshot.mjs';
 
 // ---------- CLI ----------
 const args = process.argv.slice(2);
@@ -211,7 +210,7 @@ const dataUri = (f) => {
   return `data:${MIME[ext] || 'image/png'};base64,${readFileSync(f).toString('base64')}`;
 };
 
-function galleryHtml() {
+async function galleryHtml() {
   const items = [];
   const tmp = mkdtempSync(join(tmpdir(), 'weekly-shot-'));
   if (shotsDir && existsSync(shotsDir)) {
@@ -225,7 +224,7 @@ function galleryHtml() {
   }
   for (const u of urls) {
     const f = join(tmp, u.replace(/^https?:\/\//, '').replace(/[^\w.-]/g, '_').slice(0, 120) + '.png');
-    const r = screenshotUrl(u, f);
+    const r = await screenshotUrl(u, f);
     if (r.ok) items.push({ src: dataUri(f), label: u });
     else console.error(`[render-report] screenshot failed: ${u} (${r.error}) — skipped`);
   }
@@ -322,7 +321,7 @@ async function identityBlock() {
 const md = readFileSync(mdFile, 'utf8');
 const title = (md.match(/^#\s+(.+)$/m) || [,''])[1];
 const { meta, html: body } = mdToHtml(md);
-const shots = galleryHtml();
+const shots = await galleryHtml();
 const identity = await identityBlock();
 const watermark = watermarkCss();
 
@@ -410,24 +409,28 @@ console.log(`[render-report] HTML → ${htmlPath}`);
 const engine = findEngine();
 if (!engine) {
   console.error('[render-report] no Chromium engine found — PDF skipped (HTML delivered).');
-  process.exit(0);
+  console.error('[render-report] exit 2 = 展示版 PDF 未产出 — 不许当成完成，收尾第一行必须点明。');
+  process.exit(2);
 }
 // 必须绝对路径：Chromium 的 --print-to-pdf 不认相对路径，会 exit 0 但不写文件（静默失败）
 const pdfPath = resolve(outPdf || join(dirname(mdFile), `${base}-展示.pdf`));
-try { rmSync(pdfPath, { force: true }); } catch { /* 文件被占用（如正被预览）——继续尝试覆盖 */ } // 防旧文件误判“已生成”
-const mtimeBefore = existsSync(pdfPath) ? statSync(pdfPath).mtimeMs : 0;
-const res = spawnSync(
-  engine,
-  ['--headless=new', '--disable-gpu', '--no-pdf-header-footer', `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href],
-  { stdio: 'ignore', timeout: 120_000 }
-);
-const mtimeAfter = existsSync(pdfPath) ? statSync(pdfPath).mtimeMs : 0;
-if (res.error || res.status !== 0 || !existsSync(pdfPath) || statSync(pdfPath).size === 0) {
-  console.error(`[render-report] PDF failed: ${res.error?.message || `exit ${res.status ?? res.signal}`} — HTML delivered`);
-  process.exit(0);
+const res = await printToPdf({ engine, htmlPath, pdfPath, timeoutMs: 120_000 });
+if (!res.ok) {
+  console.error(`[render-report] PDF failed: ${res.error} — HTML delivered`);
+  console.error('[render-report] exit 2 = 展示版 PDF 未产出 — 不许当成完成，收尾第一行必须点明。');
+  process.exit(2);
 }
-if (mtimeAfter === mtimeBefore) {
-  console.error(`[render-report] PDF 未更新：${pdfPath}（可能正被预览程序占用）—— HTML 已更新，关闭旧预览后重跑即可`);
-  process.exit(0);
+console.log(`[render-report] PDF → ${pdfPath} (${(res.size / 1024).toFixed(1)} KB)`);
+
+// ---------- 自检（Step 4 gate 的机器版：收尾前不用靠肉眼猜封面有没有身份） ----------
+const hasIdentity = /class="identity"/.test(html);
+const hasAvatar = /class="avatar" src="data:image\//.test(html);
+const hasWatermark = /data:image\/svg\+xml;base64,/.test(html);
+console.log(`[render-report] 自检 identity=${hasIdentity ? 'ok' : 'MISSING'} ` +
+  `avatar=${hasAvatar ? 'ok' : 'MISSING'} watermark=${hasWatermark ? 'ok' : 'none(未传 --brand)'}`);
+if (!hasIdentity) {
+  console.error('[render-report] WARN identity=MISSING — 封面没有身份条：补 --author/--github 重跑（Step 4 gate 不通过）。');
 }
-console.log(`[render-report] PDF → ${pdfPath} (${(statSync(pdfPath).size / 1024).toFixed(1)} KB)`);
+if (!hasAvatar) {
+  console.error('[render-report] WARN avatar=MISSING — 只落了姓名缩写：能联网/gh 可用时补 --github（或 --avatar）重跑。');
+}

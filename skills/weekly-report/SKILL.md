@@ -2,8 +2,8 @@
 name: weekly-report
 description: >-
   Reconstruct what you did over a recent period (default: last 7 days) from
-  CODE EVIDENCE — git history, uncommitted changes, recently touched files,
-  and generated artifacts — cluster it by FEATURE (not by commit), and write
+  CODE EVIDENCE — git history, uncommitted changes, code atoms, and generated
+  artifacts — cluster it by FEATURE (not by commit), and write
   an archiveable dated report plus a short spoken summary you can read aloud
   in a stand-up. Handles repos hosted anywhere (local, or another owner's
   GitHub repo you can read via `gh`). Trigger when the user says things like
@@ -15,7 +15,7 @@ description: >-
 Rebuild a truthful, human-readable summary of recent work **from the code**, not from memory. Produce **three** deliverables:
 
 1. An **archiveable dated report** (Markdown) — written to disk.
-2. A **PDF export** of that report — rendered (Step 4, **required**).
+2. A **presentation pair** of that report — `<base>-展示.html` + `<base>-展示.pdf`, carrying the author identity (avatar + GitHub handle) — rendered by `render-report.mjs` (Step 4, **required, not skippable, no substitute**).
 3. A **short spoken summary** (3–5 lines, user-voice) — printed in your final reply.
 
 **Format rule（无 emoji）**: every artifact this skill emits — report, PDF, rendered HTML — uses **text labels and bold** for structure (已交付 / 指标 / 风险·遗留 / 下周计划 / 亮点), **never emoji**; color is only a companion cue, never the sole signal. 版式分三档：详细归档版（Step 3 默认）、汇报版（templates/one-pager-汇报版.md）、OKR 版（templates/okr-版.md）；选型依据与参考来源见 templates/BIGTECH-FORMAT.md（非安装副本则以仓库根 templates/ 为准）。
@@ -178,7 +178,7 @@ Structure:
 
 1. **模糊完成时间**（默认开启）：报告只给区间——窗口写在标题里，模块内统一用「本期」；
    - evidence 只列 commit hash，**不列提交日期/时间**；
-   - 数据快照只给汇总数，不给逐日明细，**不要逐日提交图**；
+   - 若用户明确要求代码量，脚注只给窗口汇总，不给逐日明细，**不要逐日提交图**；
    - 用户明确要求时间线（"按天列一下"）时才给日期。
 2. **分人汇报**：窗口内 git 作者 ≥2 时按人分段。**直接用作者名（git author name / GitHub 账号）称呼，
    不要写「本人 / 同事」**——报告是给上级看的，人称要能对上具体的人。
@@ -207,7 +207,7 @@ Structure:
    - **按人只给提交数**：净变化无法按人拆分（共享历史），逐提交累加又和头条口径打架。
      真要给按人行数，表头必须写「逐提交累加（含重复改写）」。
    - **按模块**：给改动文件数 + 提交数；行数可选但同样标注累加口径。
-5. **诚实边界**：未提交 / 未发布 / 在别的分支的，必须在「备注 / 遗留」逐条点明状态。
+6. **诚实边界**：未提交 / 未发布 / 在别的分支的，必须在「备注 / 遗留」逐条点明状态。
 
 ### Spoken summary (required)
 
@@ -221,26 +221,46 @@ Repeat the **3–5 lines** from the archive header **in your final reply** so th
 
 ---
 
-## Step 4 — PDF export（必产出，收尾前必须执行）
+## Step 4 — 展示版导出（必产出，收尾前必须执行）
 
-The `.md` is the archive source of truth; the **PDF is a required deliverable** — record the exact line above in Step 1 quoting evidence, then **before answering, ALWAYS render a PDF** and verify it exists. Two renderers ship next to this SKILL.md (zero npm deps, headless Edge/Chrome — engine order `$CHROME_BIN` → Edge → Chrome):
+The `.md` is the archive source of truth; **the deliverable that actually gets looked at is the presentation pair** — `<report-base>-展示.html` + `<report-base>-展示.pdf`, produced by `render-report.mjs`, carrying the cover identity (avatar + GitHub handle) and the KPI strip. **This step is mandatory and has no substitute.** `render-pdf.mjs` produces a plain archive copy only: running it does **not** satisfy this step, and neither does shipping the `.md` by itself.
 
-1. **Quick PDF** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF). Use this as the default — it satisfies the requirement with one command.
-2. **Presentation** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--urls "https://a;https://b"] [--shots-dir <dir>]` — for showing the report to a manager/customer; it also writes a PDF:
+Both renderers ship next to this SKILL.md (zero npm deps, headless Edge/Chrome — engine order `$CHROME_BIN` → Edge → Chrome):
+
+1. **Presentation — REQUIRED, run this one** — `node <skill-dir>/render-report.mjs <report.md> [--evidence <evidence.json>] [--author "<name>"] [--github "<login>"] [--urls "https://a;https://b"] [--shots-dir <dir>] [--brand <logo.svg>]`. **Always pass `--author`/`--github` (one group per author in the window, comma-separated)** — without them the cover degrades to initials, which does not count as done. It writes the pair:
    - **KPI strip** built from `evidence.mjs` output (commits / feat+fix / modules / files). The report's leading `> 数据来源 / 口径说明 / 分段` block is lifted into the cover as labeled meta rows. **No per-day commit chart** — completion timing stays deliberately coarse (口径约定 #1);
    - **cover identity + optional brand watermark**: `--author` / `--github` / `--avatar` render avatar + name + GitHub handle at the top of the report. **Pass one entry per author in the window, comma-separated** (`--github "login-a,login-b"` / `--author "name-a,name-b"`) so a multi-person report shows every participant; single-person defaults come from `git config user.name` + `gh api user`, with initials as the offline fallback (generic, not tied to any org). `--brand <logo.svg>` lays a semi-transparent watermark over the page. **Never bundle a company logo in this repo**; if the user points `--brand` at their own asset (e.g. Pamera's `logo.svg`), keep it their choice and say in the README it is company-internal only;
    - **section styling** by heading keywords: 已交付 (green) / 指标 (dark-blue) / 风险·遗留 (amber) / 下周计划 (blue) chips — label always, never color alone;
    - **screenshot gallery**: pass `--urls` for pages it should capture itself (e.g. the product's public URLs — a real page beats a paragraph) or `--shots-dir` for files you have; images embed as `data:` URIs so the HTML is one self-contained file;
    - writes `<report-base>-展示.html` + `<report-base>-展示.pdf` next to the `.md`.
+2. **Quick PDF — extra archive copy, NOT a substitute** — `node <skill-dir>/render-pdf.mjs <report.md>` (plain md → PDF). Run it only *in addition to* #1, when the user wants a plain copy too. **Reporting success after this one alone is a process failure, not a shortcut.**
 
 Report styles live in `templates/` — `one-pager-汇报版.md` (manager-facing: 重点突破 1–2 项 → 已交付 → 指标 with Δ → 风险/需支援 → 下周 Top 3 → 亮点), `okr-版.md` (O/KR with 目标 vs 实际), plus `BIGTECH-FORMAT.md`, the survey behind these. If presentation matters, the 一页汇报 section should focus 1–2 项重点突破, and the report should keep explicit 风险/需支援 and 下周计划 slots — code evidence can't fill those, leave them as honest placeholders for the user.
 
-**Verification & honesty**: check the output file exists and is non-empty before reporting success (e.g. `Get-Item` / `ls -la`). If rendering fails (no headless Edge/Chrome available), deliver the `.md` and state plainly in the final reply that the PDF was **skipped because the renderer had no browser** — never claim a PDF you did not produce; never ship an empty file. The PDF name keeps the report's basename: `<report-base>.pdf` or `<report-base>-展示.pdf`, next to the `.md`.
+### Step 4 gate — run these checks and paste the output (do not eyeball it)
+
+```bash
+ls -la "<report-base>-展示.html" "<report-base>-展示.pdf"          # 两个都要在，且都非空
+grep -c 'class="identity"' "<report-base>-展示.html"              # 必须 ≥1
+grep -c 'class="avatar" src="data:image/' "<report-base>-展示.html"  # 必须 ≥1（真头像已内嵌）
+```
+
+- `class="identity"` 为 0 → 封面没带身份，多半是漏传 `--author/--github`：**回去补参数重跑**。
+- 头像 `data:image/` 为 0 → 只落了姓名缩写兜底：能联网/`gh` 可用时**补 `--github`（或 `--avatar`）重跑**，并说明为何用了兜底。
+- 加了 `--brand` 就再确认 HTML 里有 `body::before` 与 `data:image/svg+xml;base64,`（水印真的内嵌了）。
+
+**收尾时绝不允许出现**（都是已经发生过的真实失误）：
+- 只跑了 `render-pdf.mjs` 就宣布「PDF 已产出」——那只满足「有一份 PDF」，不满足本步；
+- 跑了 `render-report.mjs` 却不传 `--author`/`--github`，封面只剩缩写，却按「已完成」交付；
+- 把「HTML 已产出」当成「展示版已完成」——PDF 没写出来就是没完成。
+
+**Failure path**: `render-report.mjs` **exits 2 when the PDF was not written** — treat a non-zero exit as a hard failure, never as success. If there is no headless Edge/Chrome, deliver the `.md` + `-展示.html`, and say **in the first line** of the reply that `-展示.pdf` was **skipped because the renderer had no browser**. Never claim a PDF you did not produce; never ship an empty file.
 
 ---
 
 ## Wrap-up
 
-- Confirm the archive **and PDF** paths in your reply.
-- Keep the 行数统计 honest: it's the collector's counting, not curation — if it includes noise (lockfiles/regenerated), say so in 数据快照.
+- Confirm the archive path **and both** presentation paths (`-展示.html` + `-展示.pdf`) in your reply — a reply that mentions only the `.md` or only a plain PDF is an incomplete run.
+- If Step 4's gate did not pass (no identity, no embedded avatar, no PDF), say so in the **first line** instead of listing it as done.
+- Keep any requested code-size footnote honest: it is the collector's counting, not curation — if it includes noise (lockfiles/regenerated), say so beside the number.
 - Gently note: mid-week commits/stashes make the next report measurably fuller — code evidence can't recover discussions or discarded directions that never touched a file.

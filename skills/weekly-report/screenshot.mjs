@@ -5,11 +5,17 @@
 //   node screenshot.mjs <outdir> <url> [<url> ...]
 //   -> <outdir>/<host><path>.png (path slashes -> _)
 //
-// Also exports helpers used by render-report.mjs: findEngine(), screenshotUrl().
+// Also exports helpers used by render-report.mjs and render-pdf.mjs.
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, statSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
+
+const POLL_MS = 250;
+const EXIT_GRACE_MS = 5_000;
 
 export function findEngine() {
   const candidates = [
@@ -33,34 +39,124 @@ export function findEngine() {
   return null;
 }
 
-export function screenshotUrl(url, outFile, engine = findEngine()) {
+function fileSize(file) {
+  try {
+    return statSync(file).size;
+  } catch {
+    return 0;
+  }
+}
+
+function killTree(child) {
+  if (!child?.pid || child.exitCode !== null) return;
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+  } else {
+    try { child.kill('SIGKILL'); } catch { /* already exited */ }
+  }
+}
+
+async function renderToFile({ engine, args, outFile, minBytes = 1, timeoutMs = 60_000 }) {
   if (!engine) return { ok: false, error: 'no Chromium engine found' };
-  const res = spawnSync(
+
+  const profileDir = mkdtempSync(join(tmpdir(), 'weekly-report-browser-'));
+  try { rmSync(outFile, { force: true }); } catch (error) {
+    rmSync(profileDir, { recursive: true, force: true });
+    return { ok: false, error: `cannot replace existing output: ${error.message}` };
+  }
+
+  let child;
+  try {
+    child = spawn(
+      engine,
+      [
+        '--headless=new',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-default-browser-check',
+        `--user-data-dir=${profileDir}`,
+        ...args,
+      ],
+      { stdio: 'ignore', windowsHide: true }
+    );
+  } catch (error) {
+    rmSync(profileDir, { recursive: true, force: true });
+    return { ok: false, error: error.message };
+  }
+
+  let spawnError;
+  let exitState;
+  child.once('error', (error) => {
+    spawnError = error;
+    exitState ||= { at: Date.now(), code: null, signal: null };
+  });
+  child.once('close', (code, signal) => {
+    exitState = { at: Date.now(), code, signal };
+  });
+
+  const deadline = Date.now() + timeoutMs;
+  let previousSize = 0;
+  let ready = false;
+  while (Date.now() < deadline) {
+    const size = fileSize(outFile);
+    if (size >= minBytes && size === previousSize) {
+      ready = true;
+      break;
+    }
+    previousSize = size;
+    if (exitState && Date.now() - exitState.at >= EXIT_GRACE_MS) break;
+    await delay(POLL_MS);
+  }
+  if (fileSize(outFile) >= minBytes && fileSize(outFile) === previousSize) ready = true;
+
+  if (ready && child.exitCode === null && child.signalCode === null) {
+    killTree(child);
+    await delay(100);
+  }
+  if (!ready) killTree(child);
+  try { rmSync(profileDir, { recursive: true, force: true }); } catch { /* browser may still hold profile files */ }
+
+  if (!ready) {
+    const detail = spawnError?.message || (exitState ? `exit ${exitState.code ?? exitState.signal}` : `timed out after ${timeoutMs}ms`);
+    return { ok: false, error: detail };
+  }
+  return { ok: true, file: outFile, size: fileSize(outFile) };
+}
+
+export async function screenshotUrl(url, outFile, engine = findEngine()) {
+  const result = await renderToFile({
     engine,
-    [
-      '--headless=new',
-      '--disable-gpu',
+    outFile,
+    minBytes: 1024,
+    timeoutMs: 90_000,
+    args: [
       '--hide-scrollbars',
       '--window-size=1440,900',
       '--virtual-time-budget=15000',
       `--screenshot=${outFile}`,
       url,
     ],
-    { stdio: 'ignore', timeout: 90_000 }
-  );
-  const ok = !res.error && res.status === 0 && existsSync(outFile) && statSync(outFile).size > 1024;
-  return ok
-    ? { ok: true, file: outFile, kb: Math.round(statSync(outFile).size / 1024) }
-    : { ok: false, error: res.error?.message || `exit ${res.status ?? res.signal}`, url };
+  });
+  return result.ok ? { ...result, kb: Math.round(result.size / 1024) } : { ...result, url };
 }
 
-export function captureUrls(urls, outDir) {
+export async function printToPdf({ engine = findEngine(), htmlPath, pdfPath, timeoutMs = 60_000 }) {
+  return renderToFile({
+    engine,
+    outFile: pdfPath,
+    minBytes: 1,
+    timeoutMs,
+    args: ['--no-pdf-header-footer', `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href],
+  });
+}
+
+export async function captureUrls(urls, outDir) {
   const engine = findEngine();
   const results = [];
   for (const url of urls) {
     const name = url.replace(/^https?:\/\//, '').replace(/[^\w.-]/g, '_').slice(0, 120) + '.png';
     const out = join(outDir, name);
-    results.push({ url, ...screenshotUrl(url, out, engine) });
+    results.push({ url, ...(await screenshotUrl(url, out, engine)) });
   }
   return results;
 }
@@ -72,7 +168,7 @@ if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}` || proc
     console.error('usage: node screenshot.mjs <outdir> <url> [<url> ...]');
     process.exit(1);
   }
-  const results = captureUrls(urls, outdir);
+  const results = await captureUrls(urls, outdir);
   let failed = 0;
   for (const r of results) {
     if (r.ok) console.log(`[shot] OK ${r.kb}KB  ${r.url} -> ${r.file}`);

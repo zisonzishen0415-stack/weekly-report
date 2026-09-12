@@ -10,15 +10,16 @@ rely on memory. It rebuilds "what I did" from code evidence.
 | Time window | last 7 days | Say `近 N 天` / `last N days` / `上周` |
 | Scan directories | ask each run | Pass `from <dir>`; or add to **Directory list** below |
 | Output dir | `…/dev/工作总结/<date>_周报.md` | Edit **Output dir** below |
-| PDF export | **on (required, Step 4)** | Always renders `render-pdf.mjs` (or `render-report.mjs` for the presentation); needs Edge/Chrome (`$CHROME_BIN` override) |
-| Presentation | off | Say `做成展示版` / `presentation`; adds KPI strip + cover meta rows + screenshot gallery (`--urls`/`--shots-dir`). No per-day commit chart |
+| 展示版导出 | **on (required, Step 4, no substitute)** | Always renders `render-report.mjs` → `-展示.html` + `-展示.pdf`，带封面身份条；needs Edge/Chrome (`$CHROME_BIN` override). `render-pdf.mjs` 只是**额外**的纯 PDF 副本，不能替代本步 |
+| Presentation extras | 身份条必传，截图/水印可选 | `--author`/`--github`（每个作者一组，逗号分隔）必传，否则封面只剩缩写、Step 4 gate 不通过；`--urls`/`--shots-dir` 加截图画廊，`--brand` 加水印。No per-day commit chart |
 | 模块写法 | 目标 → 做法与关键决策 → 效果 → 可核验 | 重心在「做法」和「效果」；不写行数、不写讲解词/演示步骤 |
-| 数据快照 | 一段话 + 脚注数字 | 不铺逐人逐模块行数表；行数在 AI 辅助开发下意义不大 |
-| KPI 口径 | 净变化（可复核） | 窗口 `--since`+`--until` 双端锁定；用 `git diff --shortstat <前一个提交> <末提交>`，不用逐提交累加；生成物剔除；按人只给提交数 |
+| 代码量展示 | 默认关闭 | 只有用户明确要求时才在归档脚注给一句窗口汇总；不铺逐人逐模块行数表 |
+| KPI 口径 | 业务 / 产品指标 | 优先用本期 vs 上期 + Δ；没有真实指标就留白，不用代码量冒充 KPI |
+| 行数复核（按需） | 净变化 | 窗口 `--since`+`--until` 双端锁定；用 `git diff --shortstat <前一个提交> <末提交>`，生成物剔除 |
 | 完成时间口径 | 模糊（只给区间） | Default: no per-task dates/times anywhere; say `按天列一下` to get a dated timeline |
-| 分人汇报 | 作者 ≥2 时自动分段 | 第一部分本人、第二部分其他作者；say `只报我自己` to scope to one person |
+| 分人汇报 | 作者 ≥2 时自动分段 | 直接用作者名分段，不写「本人 / 同事」；say `只报我自己` to scope to one person |
 | 品牌水印 | 关 | `--brand <logo.svg>` 加半透明整页水印；**仓库不含任何公司 logo**（Pamera 字标仅本公司内部周报用） |
-| 封面身份 | 自动推断 | `--author` / `--github` / `--avatar`，逗号分隔可列多人（本人第一位）——报告里有几个作者就写几个；单人缺省取 `git config user.name` + `gh api user`，头像拉不到时回退姓名首字母 |
+| 封面身份 | 自动推断 | `--author` / `--github` / `--avatar`，逗号分隔可列多人（本地身份推断时本人放第一位）——报告里有几个作者就写几个；单人缺省取 `git config user.name` + `gh api user`，头像拉不到时回退姓名首字母 |
 | Editable sections | never emoji | All artifacts use text labels + bold; color is a companion cue only |
 
 ## Directory list (editable)
@@ -37,8 +38,9 @@ Where dated reports are archived.
 
 - git commits in window
 - uncommitted changes (`git status` / `git diff`)
-- files modified in window
+- code atoms extracted from real diffs
 - artifacts & docs (images, PDFs, work-report docs)
+- recently modified files only as supporting hints; mtime is not work ground truth
 
 ## Known limits
 

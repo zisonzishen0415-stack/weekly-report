@@ -67,7 +67,12 @@ const res = spawnSync(
   { encoding: "utf8", timeout: 180_000 }
 );
 const stderr = res.stderr || "";
-check("exit 0", res.status === 0, `status=${res.status} stderr=${stderr.trim().slice(0, 200)}`);
+// Step-4 contract: 0 = HTML+PDF written; 2 = engine missing, PDF honestly skipped (never silently "ok").
+check(
+  "exit 0, or 2 when no engine (honest skip)",
+  res.status === 0 || (res.status === 2 && /PDF skipped/.test(stderr)),
+  `status=${res.status} stderr=${stderr.trim().slice(0, 200)}`
+);
 
 const htmlPath = join(tmp, "report-展示.html");
 check("HTML written", existsSync(htmlPath));
@@ -120,7 +125,11 @@ const pdfPath = join(tmp, "report-展示.pdf");
 if (existsSync(pdfPath)) {
   check("PDF exists and non-empty", statSync(pdfPath).size > 0, `size=${statSync(pdfPath).size}`);
 } else {
-  check("PDF clean skip (no engine)", /PDF skipped|PDF failed/.test(stderr), stderr.trim().slice(0, 200));
+  check(
+    "PDF clean skip (no engine, exit 2)",
+    res.status === 2 && /PDF skipped|PDF failed/.test(stderr),
+    `status=${res.status} stderr=${stderr.trim().slice(0, 200)}`
+  );
 }
 
 console.log("== render-pdf.mjs (quick-PDF smoke) ==");
@@ -133,6 +142,30 @@ if (res2.status === 0) {
   check("quick PDF clean skip (exit 2)", /no Chromium browser found/.test(stderr2), stderr2.trim().slice(0, 200));
 } else {
   check("quick PDF unexpected exit", false, `status=${res2.status} stderr=${stderr2.trim().slice(0, 200)}`);
+}
+
+// ---------- Step-4 gate: the cover must carry identity, and the self-check must say so ----------
+console.log("== Step 4 gate (identity + self-check line) ==");
+const idDir = mkdtempSync(join(tmpdir(), "weekly-report-id-"));
+const idMd = join(idDir, "report.md");
+const idAvatar = join(idDir, "face.png");
+cpSync(md, idMd);
+writeFileSync(idAvatar, TINY_PNG);
+const res3 = spawnSync(
+  process.execPath,
+  [renderReport, idMd, "--author", "测试作者", "--github", "octocat", "--avatar", idAvatar],
+  { encoding: "utf8", timeout: 180_000 }
+);
+const stdout3 = res3.stdout || "";
+const idHtmlPath = join(idDir, "report-展示.html");
+if (existsSync(idHtmlPath)) {
+  const html3 = readFileSync(idHtmlPath, "utf8");
+  check("gate: identity block rendered", html3.includes('class="identity"'));
+  check("gate: avatar embedded as data:URI", /class="avatar" src="data:image\//.test(html3));
+  check("gate: self-check line reports identity=ok", /自检 identity=ok/.test(stdout3), stdout3.trim().slice(0, 300));
+  check("gate: self-check line reports avatar=ok", /avatar=ok/.test(stdout3), stdout3.trim().slice(0, 300));
+} else {
+  check("gate: HTML written with identity args", false, `status=${res3.status} ${(res3.stderr || "").trim().slice(0, 200)}`);
 }
 
 if (failed) {
