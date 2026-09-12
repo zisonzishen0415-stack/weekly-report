@@ -38,11 +38,14 @@ import { statSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, extname } from "node:path";
 
 function run(cmd, args, opts = {}) {
+  // git 默认 core.quotepath=true：非 ASCII 路径会被转义成 "\344\270\212..." 并加引号，
+  // 下游拿到的就不是真路径了（中文文件名一律失配）。统一关掉，路径原样输出。
+  const argv = cmd === "git" ? ["-c", "core.quotepath=false", ...args] : args;
   try {
-    return execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, ...opts }).trim();
+    return execFileSync(cmd, argv, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, ...opts }).trim();
   } catch (e) {
     if (opts.allowFail) return "";
-    throw new Error(`${cmd} ${args.join(" ")} failed: ${e.message}`);
+    throw new Error(`${cmd} ${argv.join(" ")} failed: ${e.message}`);
   }
 }
 
@@ -197,9 +200,13 @@ for (const c of out.commits) {
   }
 }
 
-// regenerated noise = recent files that are huge & machine-authored, plus big deletions in commits
+// regenerated noise = machine-authored churn, judged by NAME/DIR (bundles, dumps,
+// lockfiles, generated snapshots) — plus, inside commits, huge sql/json additions.
+// 尺寸单独不构成判据：404KB 的 frontend/src/pages/CatalogBoard.tsx 是手写源码，
+// 曾因为 f.size > 300_000 被判成生成物，整份文件从 changedFileSet（ground truth）里消失，
+// 而它在窗口内被 7 个提交改过。ground-truth 列表宁可多收，不可静默丢。
 out.regenerated = out.recentFiles
-  .filter(f => f.size > 300_000 || looksRegenerated(f.path, 0, 0))
+  .filter(f => looksRegenerated(f.path, 0, 0))
   .map(f => f.path);
 for (const c of out.commits) {
   for (const f of c.files) {
@@ -223,8 +230,13 @@ for (const c of out.commits) for (const f of c.files) {
 for (const r of out.renames) {
   if (realSet.has(r.from)) { realSet.delete(r.from); realSet.add(r.to); }
 }
-out.uncommitted.changed.forEach(addReal);
-out.uncommitted.deleted.forEach(p => realSet.add(p));
+// 未提交的也要过同一套 noise 判定：否则 dist/build/lockfile、以及本工具自己的
+// .weekly-report/（SKILL.md 承诺"自动排除"）会绕过正则、混进 changedFileSet。
+out.uncommitted.changed.forEach(p => {
+  if (looksRegenerated(p, 0, 0)) noiseSet.add(p);
+  else addReal(p);
+});
+out.uncommitted.deleted.forEach(p => { if (!looksRegenerated(p, 0, 0)) realSet.add(p); });
 
 // === v3: code-atom extraction ===
 // Language-agnostic, diff-based: for each real changed file, surface NEW semantic
