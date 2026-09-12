@@ -94,9 +94,25 @@ if (!dir || !isRepo(dir)) {
 }
 
 const since = args.includes("--since") ? args[args.indexOf("--since") + 1] : daysAgoIso(days);
+const until = args.includes("--until") ? args[args.indexOf("--until") + 1] : null;
 const authorFlag = author ? ["--author", author] : [];
 
-const out = { repo: dir, window: { days, start: since }, author: author ?? null };
+// 日期过滤不能交给 git 单独完成。实测：--since=2026-09-05 与 --since-as-filter=2026-09-05
+// 都会漏掉 6 条 ad=cd=2026-09-05 的提交（09-05 09:26~10:54 那批 viewer 改动，
+// merge-base 判定确为 HEAD 祖先、无 graft/replace）——git 的日期限制在带合并的
+// 历史上边界并不可靠，且 --since-as-filter 需要 git 2.45+。
+// 做法：git 侧只给一个「宽松下界」（多留 slack，保证不漏），窗口边界在 Node 里
+// 按提交自带的 ISO 作者日期精确判定。这样计数可复现、与 git 版本无关。
+const SLACK_DAYS = 30;
+const slackSince = (() => {
+  const d = new Date(`${since}T00:00:00`);
+  d.setDate(d.getDate() - SLACK_DAYS);
+  return d.toISOString().slice(0, 10);
+})();
+const windowFlag = [`--since=${slackSince}`, ...(until ? [`--until=${until}`] : [])];
+const inWindow = (isoDate) => isoDate >= since && (!until || isoDate < until);
+
+const out = { repo: dir, window: { days, start: since, ...(until ? { end: until } : {}), preciseInProcess: true }, author: author ?? null };
 
 // last commit (staleness signal)
 const lastRaw = run("git", ["-C", dir, "log", "-1", "--pretty=%H|%aI|%an|%s"], { allowFail: true });
@@ -109,7 +125,7 @@ if (lastRaw) {
 }
 
 // commits in window
-const logRaw = run("git", ["-C", dir, "log", `--since=${since}`, ...authorFlag,
+const logRaw = run("git", ["-C", dir, "log", ...windowFlag, ...authorFlag,
   "--pretty=%H|%aI|%an|%ae|%s", "--name-status"], { allowFail: true });
 out.commits = [];
 for (const block of logRaw.split(/\n(?=[0-9a-f]{40}\|)/).filter(Boolean)) {
@@ -124,12 +140,14 @@ for (const block of logRaw.split(/\n(?=[0-9a-f]{40}\|)/).filter(Boolean)) {
   }
   out.commits.push(commit);
 }
+// git 侧只保证「不漏」，真正的窗口边界在这里判定（见上面的 SLACK_DAYS 说明）
+out.commits = out.commits.filter((c) => inWindow(c.date));
 
 // per-file add/del line counts (numstat) + per-commit totals — powers the report's 行数统计.
 // ONE `git log --numstat` pass for the whole window (was: one `git show --numstat` per
 // commit — on a busy week that's 100+ child processes; Windows spawn is not free).
 {
-  const numRaw = run("git", ["-C", dir, "log", `--since=${since}`, ...authorFlag,
+  const numRaw = run("git", ["-C", dir, "log", ...windowFlag, ...authorFlag,
     "--numstat", "--pretty=format:%H%x1f"], { allowFail: true });
   const numByCommit = new Map(); // full hash -> {path -> {additions, deletions}}
   let cur = null;
